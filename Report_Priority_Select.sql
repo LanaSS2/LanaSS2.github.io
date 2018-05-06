@@ -58,7 +58,7 @@ select
              R.year_period_f,
              R.period_no_f,
              R.version_no
-         
+	     
          from (select 
 		   Rout.qty_rout_fact,
                    Rout.qty_rout_plan,
@@ -168,8 +168,7 @@ select
        Struc.Otclon_struct_Cost110,
        Struc.year_period_f,
        Struc.period_no_f,
-       Struc.version_no
-       
+       Struc.version_no    
 from (
 select D.contract_f		contract_f,
              D.department_no	department_no,
@@ -267,7 +266,6 @@ select D.contract_f		contract_f,
          and Cost110_110.period_no = D.period_no_f
          and Cost110_110.structure_alternative = D.S_A_F_structure_alternative where 1 = 1 
          ) Struc
-
       where 
        -- Struc.structure_alternative <> '*'  and
        -- Struc.PART_NO='P04301-548-000X' and  
@@ -280,7 +278,6 @@ select D.contract_f		contract_f,
     /*  and Struc.version_no=@version_no*/
    
    group by     
-
        Struc.contract_f,
        Struc.department_no,
        Struc.PART_NO,
@@ -297,5 +294,4 @@ select D.contract_f		contract_f,
        Struc.year_period_f,
        Struc.period_no_f,
        Struc.version_no
-
 GO
