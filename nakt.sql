@@ -1,3 +1,7 @@
+/*Specifications and technological routes in production*/
+/*Parameters: cost_set - type of calculation, contract - type of site in production, ReportDate, type_code_db - type TMC*/
+/*cost_set=2 - plan type of cost calculation, cost_set=6 - fact type of cost calculation. */
+
 select
           :cost_set,
           case when :cost_set=2 then m.stateSpec2  when :cost_set=6 then m.stateSpec6 else null end  as  stateSpec,
@@ -12,30 +16,28 @@ select
        m.part_desc,
        case
          when mspsa.part_no is not null then
-          'ВУ'
+          'Р’РЈ'
          else 
-          'Не ВУ'
+          'РќР• Р’РЈ'
        end vu,       
        case
          when mspsa1.component_part is not null then
-          'Компонент'
+          'РљРѕРјРїРѕРЅРµРЅС‚'
          else
-          'Не компонент'
+          'РќРµ РєРѕРјРїРѕРЅРµРЅС‚'
        end komp,  
-
+       
+---- department from work_center by the last operation_no and phase_in_date where phase_out_date is null or phase_out_date >= :ReportDate)
  (SELECT RoutWorkC.department_no
        FROM(SELECT 
             ro.contract,
             ro.part_no,
             wc.department_no
-        ,max(ro.phase_in_date)
-        
-          FROM IFSAPP.ROUTING_OPERATION ro
-          
+        ,max(ro.phase_in_date)        
+          FROM IFSAPP.ROUTING_OPERATION ro          
           LEFT JOIN IFSAPP.Work_Center wc
             on wc.contract = ro.contract
-           and wc.work_center_no = ro.work_center_no
-           
+           and wc.work_center_no = ro.work_center_no           
           LEFT JOIN IFSAPP.ROUTING_ALTERNATE ra
             on ra.contract = ro.contract
            and ra.part_no = ro.part_no
@@ -49,15 +51,12 @@ select
            and ro.alternative_no = '*'
            and (ro.phase_out_date is null or ro.phase_out_date >= :ReportDate)
             and ro.operation_no =
-               (SELECT max(ro1.operation_no)
-               
-                  FROM IFSAPP.ROUTING_OPERATION ro1
-                  
+               (SELECT max(ro1.operation_no)               
+                  FROM IFSAPP.ROUTING_OPERATION ro1                  
                  WHERE ro.contract = ro1.contract
                    and ro.part_no = ro1.part_no
                    and ro.bom_type_db = ro1.bom_type_db
-                   and ro.alternative_no = ro1.alternative_no)
-       
+                   and ro.alternative_no = ro1.alternative_no)       
            group by  ro.contract, ro.part_no, wc.department_no)RoutWorkC  
            WHERE RoutWorkC.contract = m.contract
            and RoutWorkC.part_no = m.part_no) department,
@@ -97,8 +96,6 @@ SELECT
        route2.PHASE_out_DATE                                                as PHASE_out_DATE2,       
        route6.PHASE_IN_DATE                                                 as PHASE_IN_DATE6,
        route6.PHASE_out_DATE                                                as PHASE_out_DATE6
-
-
        
   FROM IFSAPP.inventory_part ip
   
@@ -111,14 +108,13 @@ SELECT
          mss7.part_no,
          psa8.state,
          mss7.EFF_PHASE_IN_DATE,
-         mss7.EFF_PHASE_out_DATE   
-             
+         mss7.EFF_PHASE_out_DATE                
     FROM (SELECT mss5.contract,
                  mss5.part_no,
                  mss5.EFF_PHASE_IN_DATE,
                  mss5.EFF_PHASE_out_DATE,
-                 max(mss5.eng_chg_level)  as  eng_chg_level   
-                     
+                 max(mss5.eng_chg_level)  as  eng_chg_level
+          
             FROM IFSAPP.prod_structure_head mss5          
            WHERE mss5.contract=:contract
              and mss5.bom_type_db = 'M'
@@ -136,7 +132,7 @@ SELECT
      and psa8.eng_chg_level = mss7.eng_chg_level      
      and psa8.bom_type_db = 'M'
      and psa8.alternative_no = '*'    
-                       ) spec2   --для 2го вар.себест
+                       ) spec2   --for 2 route type
               on   spec2.contract = ip.contract 
               and  spec2.part_no = ip.part_no
               
@@ -145,14 +141,13 @@ SELECT
          mss9.part_no,
          psa9.state,
          mss9.EFF_PHASE_IN_DATE,
-         mss9.EFF_PHASE_out_DATE 
-               
+         mss9.EFF_PHASE_out_DATE                
     FROM (SELECT mss6.contract,
                  mss6.part_no,
                  mss6.EFF_PHASE_IN_DATE,
                  mss6.EFF_PHASE_out_DATE,
                  max(mss6.eng_chg_level) as eng_chg_level
-                                               
+          
             FROM IFSAPP.prod_structure_head mss6          
            WHERE mss6.contract = :contract
              and mss6.bom_type_db = 'M'
@@ -170,7 +165,7 @@ SELECT
       and psa9.eng_chg_level = mss9.eng_chg_level        
       and psa9.bom_type_db = 'M'
       and psa9.alternative_no = '*'
-                ) spec6   --для 6го вар.себест
+                ) spec6   --6 type of cost price calculation
               on  spec6.contract = ip.contract 
               and spec6.part_no = ip.part_no
               
@@ -186,10 +181,8 @@ SELECT
                  ro3.part_no,             
                  ro3.PHASE_IN_DATE,
                  ro3.PHASE_out_DATE,
-                 max(ro3.routing_revision) as  routing_revision
-                 
-            FROM IFSAPP.ROUTING_HEAD ro3   
-            
+                 max(ro3.routing_revision) as  routing_revision                 
+            FROM IFSAPP.ROUTING_HEAD ro3               
              WHERE 
                   ro3.contract=:contract             
               and ro3.bom_type_db = 'M'                 
@@ -200,16 +193,15 @@ SELECT
                     ro3.PHASE_IN_DATE,
                     ro3.PHASE_out_DATE           
                     ) roo3,  
-                    
-         IFSAPP.ROUTING_ALTERNATE ra4
-         
+              
+         IFSAPP.ROUTING_ALTERNATE ra4      
          
    WHERE ra4.contract = roo3.contract
      and ra4.part_no = roo3.part_no
      and ra4.routing_revision = roo3.routing_revision     
      and ra4.bom_type_db = 'M'
      and ra4.alternative_no = '*'    
-                       ) route2   --для 2го вар.маршрута
+                       ) route2   --for the 2 route type 
               on   route2.contract = ip.contract 
               and  route2.part_no = ip.part_no            
               
@@ -227,8 +219,7 @@ SELECT
                  ro5.PHASE_out_DATE,
                  max(ro5.routing_revision) as  routing_revision
                  
-            FROM IFSAPP.ROUTING_HEAD ro5  
-            
+            FROM IFSAPP.ROUTING_HEAD ro5              
              WHERE 
                  ro5.contract=:contract             
              and ro5.bom_type_db = 'M'      
@@ -242,14 +233,13 @@ SELECT
                     ro5.PHASE_out_DATE           
                     ) roo5,  
                     
-         IFSAPP.ROUTING_ALTERNATE ra6         
-         
-   WHERE ra6.contract = roo5.contract
+         IFSAPP.ROUTING_ALTERNATE ra6      
+    WHERE ra6.contract = roo5.contract
      and ra6.part_no = roo5.part_no
      and ra6.routing_revision = roo5.routing_revision     
      and ra6.bom_type_db = 'M'
      and ra6.alternative_no = '*'    
-                       ) route6   --для 6го вар.маршрута
+                       ) route6   --6 route type 
               on   route6.contract = ip.contract 
               and  route6.part_no = ip.part_no              
          
@@ -281,27 +271,23 @@ minus
        route22.PHASE_out_DATE                                                as PHASE_out_DATE2,       
        route66.PHASE_IN_DATE                                                 as PHASE_IN_DATE6,
        route66.PHASE_out_DATE                                                as PHASE_out_DATE6
-
              
-       FROM IFSAPP.inventory_part ip2
-  
+       FROM IFSAPP.inventory_part ip2  
   LEFT JOIN ifsapp.part_cost_group pcg2
     on pcg2.contract = ip2.contract
    and pcg2.part_cost_group_id = ip2.part_cost_group_id
-  
+          
      LEFT JOIN (  
   SELECT mss77.contract,
          mss77.part_no,
          psa88.state,
          mss77.EFF_PHASE_IN_DATE,
-         mss77.EFF_PHASE_out_DATE   
-             
+         mss77.EFF_PHASE_out_DATE              
     FROM (SELECT mss55.contract,
                  mss55.part_no,
                  mss55.EFF_PHASE_IN_DATE,
                  mss55.EFF_PHASE_out_DATE,
-                 max(mss55.eng_chg_level)  as  eng_chg_level   
-                     
+                 max(mss55.eng_chg_level)  as  eng_chg_level                     
             FROM IFSAPP.prod_structure_head mss55          
            WHERE mss55.contract=:contract
              and mss55.bom_type_db = 'M'
@@ -311,31 +297,27 @@ minus
                     mss55.part_no,
                     mss55.EFF_PHASE_IN_DATE,
                     mss55.EFF_PHASE_out_DATE           
-                    ) mss77,   
-                          
+                    ) mss77,                             
          IFSAPP.PROD_STRUCT_ALTERNATE psa88
    WHERE psa88.contract = mss77.contract
      and psa88.part_no = mss77.part_no
      and psa88.eng_chg_level = mss77.eng_chg_level      
      and psa88.bom_type_db = 'M'
      and psa88.alternative_no = '*'    
-                       ) spec22   --для 2го вар.себест
+                       ) spec22   --2 type cost price calculation
               on   spec22.contract = ip2.contract 
-              and  spec22.part_no = ip2.part_no
-              
+              and  spec22.part_no = ip2.part_no              
    LEFT JOIN (
   SELECT mss99.contract,
          mss99.part_no,
          psa99.state,
          mss99.EFF_PHASE_IN_DATE,
-         mss99.EFF_PHASE_out_DATE 
-               
+         mss99.EFF_PHASE_out_DATE                
     FROM (SELECT mss66.contract,
                  mss66.part_no,
                  mss66.EFF_PHASE_IN_DATE,
                  mss66.EFF_PHASE_out_DATE,
-                 max(mss66.eng_chg_level) as eng_chg_level
-                                               
+                 max(mss66.eng_chg_level) as eng_chg_level                                               
             FROM IFSAPP.prod_structure_head mss66          
            WHERE mss66.contract = :contract
              and mss66.bom_type_db = 'M'
@@ -353,10 +335,9 @@ minus
       and psa99.eng_chg_level = mss99.eng_chg_level        
       and psa99.bom_type_db = 'M'
       and psa99.alternative_no = '*'
-                ) spec66   --для 6го вар.себест
+                ) spec66   --6 type cost price calculation
               on  spec66.contract = ip2.contract 
-              and spec66.part_no = ip2.part_no
-              
+              and spec66.part_no = ip2.part_no              
     LEFT JOIN (  
   SELECT roo33.contract,
          roo33.part_no,
@@ -370,9 +351,8 @@ minus
                  ro33.PHASE_IN_DATE,
                  ro33.PHASE_out_DATE,
                  max(ro33.routing_revision) as  routing_revision
-                 
-            FROM IFSAPP.ROUTING_HEAD ro33   
-            
+              
+            FROM IFSAPP.ROUTING_HEAD ro33               
              WHERE 
                   ro33.contract=:contract             
               and ro33.bom_type_db = 'M'                 
@@ -385,17 +365,16 @@ minus
                     ) roo33,  
                     
          IFSAPP.ROUTING_ALTERNATE ra44
-         
-         
+              
    WHERE ra44.contract = roo33.contract
      and ra44.part_no = roo33.part_no
      and ra44.routing_revision = roo33.routing_revision     
      and ra44.bom_type_db = 'M'
      and ra44.alternative_no = '*'    
-                       ) route22   --для 2го вар.маршрута
+                       ) route22   --2 route type
               on   route22.contract = ip2.contract 
-              and  route22.part_no = ip2.part_no            
-              
+              and  route22.part_no = ip2.part_no  
+          
        LEFT JOIN (  
   SELECT roo55.contract,
          roo55.part_no,
@@ -410,8 +389,7 @@ minus
                  ro55.PHASE_out_DATE,
                  max(ro55.routing_revision) as  routing_revision
                  
-            FROM IFSAPP.ROUTING_HEAD ro55  
-            
+            FROM IFSAPP.ROUTING_HEAD ro55              
              WHERE 
                  ro55.contract=:contract             
              and ro55.bom_type_db = 'M'      
@@ -425,14 +403,14 @@ minus
                     ro55.PHASE_out_DATE           
                     ) roo55,  
                     
-         IFSAPP.ROUTING_ALTERNATE ra66         
-         
+         IFSAPP.ROUTING_ALTERNATE ra66
+                 
    WHERE ra66.contract = roo55.contract
      and ra66.part_no = roo55.part_no
      and ra66.routing_revision = roo55.routing_revision     
      and ra66.bom_type_db = 'M'
      and ra66.alternative_no = '*'    
-                       ) route66   --для 6го вар.маршрута
+                       ) route66   --6 route type
               on   route66.contract = ip2.contract 
               and  route66.part_no = ip2.part_no 
    
@@ -441,7 +419,7 @@ minus
    and (ip2.part_status='N' or ip2.part_status='A')
        and nvl(ip2.part_cost_group_id,0) not in ('NEW','NAKT','0')
    
-    and (spec22.state='Действующее' and spec66.state='Действующее' and route22.state='Действующее' and route66.state='Действующее') 
+    and (spec22.state='Р”РµР№СЃС‚РІСѓСЋС‰РµРµ' and spec66.state='Р”РµР№СЃС‚РІСѓСЋС‰РµРµ' and route22.state='Р”РµР№СЃС‚РІСѓСЋС‰РµРµ' and route66.state='Р”РµР№СЃС‚РІСѓСЋС‰РµРµ') 
     and (spec22.EFF_PHASE_out_DATE is null and route22.PHASE_out_DATE is null)   
     and (spec66.EFF_PHASE_IN_DATE <=:ReportDate and (spec66.EFF_PHASE_out_DATE is null or spec66.EFF_PHASE_out_DATE >=:ReportDate))  
     and (route66.PHASE_IN_DATE <=:ReportDate and (route66.PHASE_out_DATE is null or route66.PHASE_out_DATE >=:ReportDate))  
@@ -493,7 +471,7 @@ minus
                             mss.alternative_no
                             
                        FROM IFSAPP.prod_structure mss
-                       
+                     
                       WHERE mss.contract = :contract
                         and mss.bom_type_db = 'M'
                         and mss.alternative_no = '*'
@@ -517,7 +495,7 @@ minus
 
     on mspsa1.contract = m.contract
    and mspsa1.component_part = m.part_no
-   
+
      LEFT JOIN (SELECT pps.contract,
                     pps.part_no,
                     /*cf*/
@@ -527,19 +505,18 @@ minus
                     nvl(lc.currency_rate / lc.conv_factor, 1) CurrPrice
              
                FROM IFSAPP.PURCHASE_PART_SUPPLIER pps
-               
+                
                join ifsapp.site s
                  on s.contract = pps.contract
                 and s.contract = :contract
-               LEFT JOIN ifsapp.LATEST_CURRENCY_RATES lc
-               
+               LEFT JOIN ifsapp.LATEST_CURRENCY_RATES lc               
                  on lc.company = /*cf*/
                     s.company
                 and lc.currency_code = /*cf*/
                     pps.currency_code
                 and lc.currency_type = '1'
                 and lc.valid_FROM <= :ReportDate                
-              WHERE pps.primary_vendor_db = 'Y') ppss
+              WHERE pps.primary_vendor_db = 'Y') ppss       ---Price according to currency rate
     on  ppss.contract = m.contract
    and  ppss.part_no = m.part_no
 --WHERE m.contract = :contract and  m.type_code_db   in  (:type_code_db) 
