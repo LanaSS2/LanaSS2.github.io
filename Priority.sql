@@ -8,11 +8,10 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-
  ALTER procedure [dbo].[Report_Priority_v2]
        @method  int
       ,@DateFrom date 
-      ,@DateTo  date 
+      ,@DateTo   date 
       ,@contract nvarchar(100) 
       ,@department_no varchar(max)='%|CEH1|%'     
 as
@@ -26,9 +25,9 @@ begin
       --,@DateTo  date  /*=  DateAdd(d,0-Day(getdate()),getdate())*/
        @YEAR_FROM  nvarchar(4) /*= Year(DateAdd(d,0-Day(@DateFrom),@DateFrom)) */--need  convert
       ,@YEAR_TO  nvarchar(4)  /* = Year(DateAdd(d,0-Day(@DateTo),@DateTo))*/	--need  convert
-      ,@PERIOD_FROM nvarchar(2)/* = Month(@DateFrom)*/						--need  convert
-      ,@PERIOD_TO  nvarchar(2)  /*= Month(@DateTo)	*/						--need  convert 
-    --  ,@contract nvarchar(10)   
+      ,@PERIOD_FROM nvarchar(2)/* = Month(@DateFrom)*/			        --need  convert
+      ,@PERIOD_TO  nvarchar(2)  /*= Month(@DateTo)	*/			--need  convert 
+     -- ,@contract nvarchar(10)   
      -- ,@department_no nvarchar(max)   
       ,@QueryText   varchar(MAX)
 declare	 
@@ -38,7 +37,7 @@ declare
     ,@PERIOD_TO_str nvarchar(2) = convert(nvarchar(2),@PERIOD_TO,112)   
     ,@Date_FROM_str nvarchar(8) = convert(nvarchar(8),@DateFrom,112)
     ,@Date_To_str nvarchar(8) = convert(nvarchar(8),@DateTo,112)
-	,@linkedserver  nvarchar(25) = 'PROD75'   
+    ,@linkedserver  nvarchar(25) = 'PROD75'   
 	
 if @method=1 
 begin
@@ -70,7 +69,6 @@ set	   @contract ='02'''',''''09'''',''''16'''',''''17'
  
 -- Create table t_Report_Priority_Cost_110Cost(insert_date datetime,rowtype nvarchar(10), C_All float, cost_star float, cost_buck float, contract_f nvarchar(10),department_no nvarchar(20),PART_NO nvarchar(100),eng_chg_level nvarchar(10),
 --structure_alternative nvarchar(10),year_period nvarchar(10),period_no nvarchar(10))
-
 
 /*[insert_date] [datetime] NULL*/
 
@@ -244,7 +242,7 @@ end
 									from dual connect by level< =  MONTHS_BETWEEN(TO_DATE('''''+@Date_To_str+''''',''''YYYYMMDD''''),TO_DATE('''''+@Date_FROM_str+''''',''''YYYYMMDD''''))+1) d
                                    WHERE ip.contract=pp.contract         
                                    AND pp.date_start =TO_DATE('''''+@Date_FROM_str+''''',''''YYYYMMDD'''') 
-                                   AND ppp.year_period  = d.y AND ppp.period_no = d.m AND pp.objstate in(''''Smoothed'''' ,''''Calculated'''' ,''''Approved'''') AND UPPER(pp.note) like ''''%ÒÅÊÓÙÈÉ%''''
+                                   AND ppp.year_period  = d.y AND ppp.period_no = d.m AND pp.objstate in(''''Smoothed'''' ,''''Calculated'''' ,''''Approved'''') AND UPPER(pp.note) like ''''%Ã’Ã…ÃŠÃ“Ã™ÃˆÃ‰%''''
                                               AND ppp.version_no=pp.version_no
                                               AND ppp.part_no=ip.part_no                                             
                                               AND pl.contract=pp.contract
@@ -320,7 +318,7 @@ if @method=1
 									from dual connect by level< =  MONTHS_BETWEEN(TO_DATE('''''+@Date_To_str+''''',''''YYYYMMDD''''),TO_DATE('''''+@Date_FROM_str+''''',''''YYYYMMDD''''))+1 ) d
                                    WHERE ip.contract=pp.contract         
                                    AND pp.date_start =TO_DATE('''''+@Date_FROM_str+''''',''''YYYYMMDD'''') 
-                                   AND ppp.year_period  = d.y AND ppp.period_no = d.m AND pp.objstate in(''''Smoothed'''' ,''''Calculated'''',''''Approved'''') AND UPPER(pp.note) like ''''%ÒÅÊÓÙÈÉ%''''
+                                   AND ppp.year_period  = d.y AND ppp.period_no = d.m AND pp.objstate in(''''Smoothed'''' ,''''Calculated'''',''''Approved'''') AND UPPER(pp.note) like ''''%Ã’Ã…ÃŠÃ“Ã™ÃˆÃ‰%''''
                                    AND ppp.version_no=pp.version_no AND ppp.part_no=ip.part_no AND pl.contract=pp.contract AND plp.contract=pl.contract AND plp.production_line=pl.production_line AND plp.part_no=ppp.part_no
                              GROUP BY pp.version_no, pp.contract,ppp.part_no,ppp.year_period,ppp.period_no,plp.production_line,pl.description,ip.description) L1,
                             IFSAPP.INVENTORY_PART_CHAR_ALL ipc
@@ -417,7 +415,6 @@ exec (@QueryText)
 end
 	
 --/*+*//* ~min 2*/	
-
 
 set @QueryText='select getdate(),''all'' as rowtype,C_All,0 as cost_star,round(convert(float,cost_buck),10) as cost_buck,contract_f,department_no,part_no,eng_chg_level,structure_alternative,year_period,period_no
 from OpenQuery('+@linkedserver+',''
@@ -558,8 +555,6 @@ INSERT INTO  #Cost_110Cost(insert_date,rowtype,C_All,cost_star,cost_buck,contrac
 --from #Cost_110Cost
 exec (@QueryText)
 end
-
-
 
 	if @method=2 
 begin 
