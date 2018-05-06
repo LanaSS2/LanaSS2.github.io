@@ -519,30 +519,4 @@ minus
               WHERE pps.primary_vendor_db = 'Y') ppss       ---Price according to currency rate
     on  ppss.contract = m.contract
    and  ppss.part_no = m.part_no
---WHERE m.contract = :contract and  m.type_code_db   in  (:type_code_db) 
-
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
+--WHERE m.contract = :contract and  m.type_code_db   in  (:type_code_db)   
