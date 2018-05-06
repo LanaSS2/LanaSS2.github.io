@@ -8,10 +8,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-
-
  ALTER PROCEDURE [dbo].[Report_Priority_Select]
-
    
 	  @YEAR_FROM   nvarchar(4)
 	 ,@YEAR_TO     nvarchar(4)
@@ -20,8 +17,6 @@ GO
 	 ,@contract    nvarchar(10)
      ,@department_no varchar(max)
      ,@version_no nvarchar(10)
-	
-
 
 as
 
@@ -65,7 +60,7 @@ select
              R.version_no
          
          from (select 
-				   Rout.qty_rout_fact,
+		   Rout.qty_rout_fact,
                    Rout.qty_rout_plan,
                    Rout.sum_qty_rout_plan,
                    Rout.sum_qty_rout_fact,
@@ -89,7 +84,7 @@ select
                    Rout.version_no,
                    Rout.period_no_f
  
-    from (  select       R_A_F.qty_fact						qty_rout_fact,
+    from (  select       R_A_F.qty_fact					qty_rout_fact,
                          isnull(QtyPlan.qty_plan,0)			qty_rout_plan,
                          sum(isnull(QtyPlan.qty_plan,0)) OVER(PARTITION BY isnull(QtyPlan.A_P_PART_NO, R_A_F.A_F_PART_NO),isnull(QtyPlan.year_period_p,R_A_F.year_period_f),isnull(QtyPlan.period_no_p,R_A_F.period_no_f) )	sum_qty_rout_plan,
                          sum(isnull(R_A_F.qty_fact,0))  OVER(PARTITION BY R_A_F.A_F_PART_NO, R_A_F.year_period_f,R_A_F.period_no_f)			sum_qty_rout_fact,
@@ -99,7 +94,7 @@ select
                          R_A_F.A_F_alternative			R_A_F_Routing_alternative,
                          R_A_F.alternative_description,
                          QtyPlan.A_P_alternative		QtyPlan_alternative_no,                         
-                         R_A_F.A_F_PART_NO				R_A_F_PART_NO,
+                         R_A_F.A_F_PART_NO			R_A_F_PART_NO,
                          R_A_F.part_description			PART_NO_desc,
                          QtyPlan.A_P_PART_NO			QtyPlan_PART_NO,
                          QtyPlan.year_period_p,
@@ -126,20 +121,19 @@ select
          and R.R_A_F_Routing_alternative = Labor.routing_alternative
          and R.year_period_f = Labor.year_period
          and R.period_no_f = Labor.period_no
-        where 1 = 1 )
-     								LaborRout    
+	 where 1 = 1 )						LaborRout    
       
       where
       -- LaborRout.Routing_alternative <> '*' and
       LaborRout.Otclon_rout <> '0'
       and LaborRout.Otclon_rout_Cost <> '0'  and 
       LaborRout.contract_f = @contract 
-      and @department_no like '%|' +  LaborRout.department_no + '|%'
+      and @department_no like '%|' + LaborRout.department_no + '|%'
 					 and LaborRout.year_period_f between @YEAR_FROM and @YEAR_TO
 					 and LaborRout.period_no_f between @PERIOD_FROM and @PERIOD_TO
 					 
 					  group by 
-	   LaborRout.contract_f,
+       LaborRout.contract_f,
        LaborRout.department_no,
        LaborRout.PART_NO,
        LaborRout.PART_NO_desc,
@@ -154,11 +148,10 @@ select
        LaborRout.Otclon_struct_Cost110,
        LaborRout.year_period_f,
        LaborRout.period_no_f,
-       LaborRout.version_no      
-      
+       LaborRout.version_no     
       
    union all
-
+			     
 select 
        Struc.contract_f,
        Struc.department_no,
@@ -193,10 +186,10 @@ select D.contract_f		contract_f,
              D.S_A_F_structure_alternative		structure_alternative,
              D.ALTERNATIVE_DESCRIPTION			Struc_ALTERNATIVE_DESCRIPTION,
              D.otclon_struct					Otclon_struct,
-             Cost110_110.Cost1C_All -  D.otclon_struct * Cost110_110.Cost110    Otclon_struct_Cost110, --c 04.07.2016
+             Cost110_110.Cost1C_All -  D.otclon_struct * Cost110_110.Cost110    Otclon_struct_Cost110, --from 04.07.2016
             -- D.otclon_struct * Cost110_110.Cost110 Otclon_struct_Cost110, 
              D.year_period_f					year_period_f,
-             D.period_no_f						period_no_f,
+             D.period_no_f					period_no_f,
              D.version_no
       from (select  isnull(S_A_F.qty_fact,0) qty_struct_fact,
                     isnull(QtyPlan.qty_plan,0) qty_struct_plan,
@@ -288,7 +281,7 @@ select D.contract_f		contract_f,
    
    group by     
 
-	   Struc.contract_f,
+       Struc.contract_f,
        Struc.department_no,
        Struc.PART_NO,
        Struc.PART_NO_desc,
@@ -306,5 +299,3 @@ select D.contract_f		contract_f,
        Struc.version_no
 
 GO
-
-
