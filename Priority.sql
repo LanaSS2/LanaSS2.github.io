@@ -1,6 +1,6 @@
 /*Procedure executes monthly for the period "last month" by running job. 
 With OpenQuery from Oracle. 
-When parameter @method = 1 create temporary tables. When parameter @method = 2 create physical tables.
+When parameter @method = 2 create temporary tables. When parameter @method = 1 create physical tables.
 The report aggregates in procedure Report_Priority_Select select from already filled physical tables and exports by departments.
 Parameters:
 Month and Year (@period_from, @period_to, @year_from, @year_to), @contract, @department_no, @version_no - version of the plan.*/
