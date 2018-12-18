@@ -1,0 +1,557 @@
+begin
+DECLARE @StartDate DATE;
+DECLARE @EndDate  DATE;
+SET @StartDate ='"+Format(Parameters!StartDate.Value, "yyyy-MM-dd")+"';
+set @EndDate ='"+Format(Parameters!EndDate.Value, "yyyy-MM-dd")+"';
+  drop TABLE
+  IF EXISTS #working_hours;
+  drop TABLE
+  IF EXISTS #ims;
+  drop TABLE
+  IF EXISTS #ims_w;
+  drop TABLE
+  IF EXISTS #ims_w_m1;
+  drop TABLE
+  IF EXISTS #ims_w_m2;
+  drop TABLE
+  IF EXISTS #ims_w_m3;
+  drop TABLE
+  IF EXISTS #norm;
+  drop TABLE
+  IF EXISTS CompoundList;
+
+  select   ad.*
+  INTO     #working_hours
+  FROM    (
+                    SELECT  (cast(a.daydate_fuib AS      date)+cast(' 09:00:00.00' AS time))                                   AS start_,
+                             (cast(a.daydate_fuib AS     date)+cast(' 18:00:00.00' AS time))                                   AS end_,
+                             lead(cast(a.daydate_fuib AS date)+cast(' 09:00:00.00' AS time)) OVER(ORDER BY a.daydate_fuib ASC) AS start_plus,
+                             lag(cast(a.daydate_fuib AS  date)+cast(' 18:00:00.00' AS time)) OVER(ORDER BY a.daydate_fuib ASC) AS end_minus,
+                             a.daydate_fuib,
+                             a.kind
+                    FROM     dfc.tb_sc_vtoday AS a
+                    WHERE    a.kind = 0
+                    AND      a.daydate_fuib >= @StartDate
+                    AND      a.daydate_fuib <= @EndDate
+                    UNION
+                    SELECT   d.daydate_fuib                                         AS start_,
+                             d.daydate_fuib                                         AS end_,
+                             lead(d.daydate_fuib) OVER(ORDER BY d.daydate_fuib ASC) AS start_plus,
+                             lag(d.daydate_fuib) OVER(ORDER BY d.daydate_fuib ASC)  AS end_minus,
+                             d.daydate_fuib,
+                             d.kind
+                    FROM     dfc.tb_sc_vtoday AS d
+                    WHERE    d.kind = 1
+                    AND      d.daydate_fuib >= @StartDate
+                    AND      d.daydate_fuib <= @EndDate) AS ad
+  ORDER BY ad.daydate_fuib ASC
+
+  ;commit;
+
+create LOCAL TEMPORARY TABLE CompoundList(ControllersAdminsList VARCHAR(100), PermListId INTEGER, CompoundListId INTEGER)  ON COMMIT PRESERVE ROWS;
+insert into CompoundList (ControllersAdminsList,PermListId,CompoundListId)
+
+select
+LIST(y.ControllersAdminsList)
+ ,y.PermListId
+ ,y.CompoundListId
+from(
+select
+case when  cl.valuetype=1 then u.fullnameformat
+when  cl.valuetype=2 then v.path
+when  cl.valuetype=3 then ou.name
+when  cl.valuetype=4 then  ou2.name+','+p.name
+else null end  ControllersAdminsList,
+prcon.ControllersListId as PermListId,
+cl.CompoundListId,
+cl.valuetype
+from DFC.tb_ims_CompoundListItems cl
+join dfc.tb_ims_Permissions prcon
+on cl.CompoundListId = prcon.ControllersListId
+left join (select u1.id, u1.fullnameformat from dfc.tb_ims_users u1) u
+on cl.value=u.id
+left join dfc.tb_ims_verticals v
+on cl.value=v.id
+left join dfc.tb_ims_OrgUnits ou
+on cl.value=ou.id
+left join dfc.tb_ims_OrgUnits ou2
+on cl.value=ou2.id
+left join dfc.tb_ims_positions p
+on cl.AdditionalValue=p.id
+union
+select
+case when  cl2.valuetype=1 then u.fullnameformat
+when  cl2.valuetype=2 then v.path
+when  cl2.valuetype=3 then ou.name
+when  cl2.valuetype=4 then ou2.name+','+p.name
+else null end  ControllersAdminsList,
+pradm.AdminsListId as PermListId,
+cl2.CompoundListId,
+cl2.valuetype
+from DFC.tb_ims_CompoundListItems cl2
+join dfc.tb_ims_Permissions pradm
+on cl2.CompoundListId = pradm.AdminsListId
+left join (select u2.id, u2.fullnameformat from dfc.tb_ims_users u2) u
+on cl2.value=u.id
+left join dfc.tb_ims_verticals v
+on cl2.value=v.id
+left join dfc.tb_ims_OrgUnits ou
+on cl2.value=ou.id
+left join dfc.tb_ims_OrgUnits ou2
+on cl2.value=ou2.id
+left join dfc.tb_ims_positions p
+on cl2.AdditionalValue=p.id) y
+group by
+ y.PermListId,
+ y.CompoundListId
+;commit;
+
+  select          u.id AS user_id,
+                  u.fullnameformat,
+                  u.userlogin,
+                  pr.permissionsrequestid AS id_zajavka,
+                  pr.id                   AS id_zapros,
+                  pr.permissionid         AS id_type_permission,
+                  per.displayname         AS type_permission,
+                  ms.displayname          AS displayname_managedsystems,
+                  ms.id                   AS id_system,
+                  msc.displayname         AS category_system,
+                  per.visibilitylistid,
+                  per.controllerslistid,
+                  contrlist.ControllersAdminsList AS ControllersList,
+                  per.adminslistid,
+                  adminlist.ControllersAdminsList AS AdminsList,
+                  (
+                  CASE
+                                  WHEN pr.isrejected = 0 THEN 'vipolnen'
+                                  WHEN pr.isrejected = 1 THEN 'otkaz'
+                                  ELSE NULL
+                  END) AS isrejected,
+
+                 CASE WHEN pr.status=2 THEN 'Vipolneno'
+                      WHEN pr.status=1 THEN 'InProgress'
+                      WHEN pr.status=99 THEN 'Oshibka'
+                      WHEN pr.status=0  THEN 'Sozdan' end as StatusPerm,
+
+
+                  (
+                  CASE
+                                  WHEN pr.permissionchangetype = 1 THEN 'vida4a'
+                                  WHEN pr.permissionchangetype = -1 THEN 'otziv'
+                                  ELSE NULL
+                  END)            AS otziv_vida4a,
+                  pr.creationdate AS creationdate_permreq,
+                  wh.daydate_fuib AS daydate_fuibcreationdate,
+                  wh.start_,
+                  wh.end_,
+                  wh.end_minus,
+                  wh.start_plus,
+                  wh2.start_ AS start_wh2,
+                  wh2.end_   AS end_wh2,
+                  prws.changedate,
+                  prws.status AS status_prws,
+                  wh2.daydate_fuib                                                                      AS daydate_fuibchangedate,
+                  wh.kind                                                                               AS kind_creationdate,
+                  wh2.kind                                                                              AS kind_changedate,
+                  row_number() OVER(partition BY prws.permissionrequestid ORDER BY prws.changedate ASC) AS rn,
+                  pr.completiondate                                                                     AS completiondate_permissionrequests,
+                  datediff(mi,pr.creationdate,pr.completiondate)                                        AS minutes_full,
+                  CASE
+                                  WHEN prws.actiontype = 1 THEN 'Soglasovanie'
+                                  WHEN prws.actiontype = 2 THEN 'Kontrol'
+                                  WHEN prws.actiontype = 3 THEN 'Admin'
+                                  ELSE NULL
+                  END AS actiontype,
+                  prws.executorid,
+                  pp.NAME           AS position,
+                  ouu.NAME          AS org,
+                  vv.path           AS vertic,
+                  uu.fullnameformat AS executor_name
+
+
+  INTO            #ims
+  FROM            dfc.tb_ims_permissionrequests             AS pr
+  JOIN            dfc.tb_ims_permissionrequestworkflowsteps AS prws
+  ON              pr.id = prws.permissionrequestid
+  JOIN            dfc.tb_ims_users AS u
+  ON              pr.targetuserid = u.id
+  JOIN            dfc.tb_ims_positions AS p
+  ON              u.positionid = p.id
+  JOIN            dfc.tb_ims_orgunits AS ou
+  ON              u.orgunitid = ou.id
+  JOIN            dfc.tb_ims_verticals AS v
+  ON              ou.verticalid = v.id
+  JOIN            dfc.tb_ims_permissions AS per
+  ON              pr.permissionid = per.id
+
+ left  JOIN  CompoundList AS contrlist
+ ON contrlist.CompoundListId= per.controllerslistid
+
+ left  JOIN  CompoundList AS adminlist
+ ON adminlist.CompoundListId= per.adminslistid
+
+  JOIN            dfc.tb_ims_managedsystems AS ms
+  ON              ms.id = per.managedsystemid
+  LEFT OUTER JOIN dfc.tb_ims_managedsystemcategories AS msc
+  ON              msc.id = per.categoryid
+  JOIN
+                  (
+                         SELECT id,
+                                fullnameformat,
+                                positionid,
+                                orgunitid
+                         FROM   dfc.tb_ims_users) AS uu
+  ON              prws.executorid = uu.id
+  JOIN            dfc.tb_ims_positions AS pp
+  ON              uu.positionid = pp.id
+  JOIN            dfc.tb_ims_orgunits AS ouu
+  ON              uu.orgunitid = ouu.id
+  JOIN            dfc.tb_ims_verticals AS vv
+  ON              ouu.verticalid = vv.id
+  JOIN            #working_hours AS wh
+  ON              cast(pr.creationdate AS date) = wh.daydate_fuib
+  JOIN            #working_hours AS wh2
+  ON              cast(prws.changedate AS date) = wh2.daydate_fuib
+  WHERE           1 = 1
+  ORDER BY        pr.id ASC,
+                  pr.creationdate ASC,
+                  prws.changedate ASC
+  ;commit;
+  select   iwh.*
+  INTO     #ims_w
+  FROM    (
+                  SELECT
+                         CASE
+                                WHEN   ii.kind_creationdate = 0
+                                AND    ii.creationdate_permreq < ii.start_
+                                AND    ii.changedate > ii.start_ THEN ii.start_
+                                WHEN ii.kind_creationdate = 0
+                                AND    ii.kind_changedate = 0
+                                AND    ii.creationdate_permreq > ii.end_ THEN ii.start_wh2
+                                WHEN ii.kind_creationdate = 1
+                                AND    ii.kind_changedate = 0 THEN ii.start_wh2
+                                ELSE ii.creationdate_permreq
+                         END AS changedateprevmain,
+                         CASE
+                                WHEN ii.kind_changedate = 0
+                                AND    ii.kind_creationdate = 0
+                                AND    ii.changedate < ii.start_wh2 THEN ii.end_
+                                WHEN ii.kind_changedate = 1
+                                AND    ii.kind_creationdate = 0 THEN ii.end_
+                                WHEN ii.kind_changedate = 0
+                                AND    ii.kind_creationdate = 1
+                                AND    ii.changedate < ii.start_wh2 THEN ii.start_wh2
+                                WHEN ii.kind_changedate = 0
+                                AND    ii.changedate > ii.end_wh2
+                                AND    ii.creationdate_permreq < ii.end_wh2 THEN ii.end_wh2
+                                ELSE ii.changedate
+                         END AS changedatemain,
+                         ii.id_zajavka,
+                         ii.id_zapros,
+                         ii.id_system,
+                         ii.creationdate_permreq AS changedateprev,
+                         ii.changedate,
+                         ii.kind_creationdate AS prev_kind_changedate,
+                         ii.kind_changedate,
+                         0 AS prev_rn,
+                         ii.rn,
+                         ii.completiondate_permissionrequests,
+                         NULL          AS actiontype1,
+                         ii.actiontype AS actiontype2,
+                         ii.executorid,
+                         ii.start_    AS start1,
+                         ii.end_      AS end1,
+                         ii.start_wh2 AS start2,
+                         ii.end_wh2   AS end2
+                  FROM   #ims         AS ii
+                  WHERE  ii.rn = 1
+                  AND    ii.daydate_fuibcreationdate <> ii.daydate_fuibchangedate
+                  UNION
+                  SELECT
+                         CASE
+                                WHEN prev.kind_changedate = 0
+                                AND    prev.changedate < prev.start_wh2
+                                AND    ims.changedate > prev.start_wh2 THEN prev.start_wh2
+                                WHEN prev.kind_changedate = 0
+                                AND    ims.kind_changedate = 0
+                                AND    prev.changedate > prev.end_wh2 THEN ims.start_wh2
+                                WHEN prev.kind_changedate = 1
+                                AND    ims.kind_changedate = 0 THEN ims.start_wh2
+                                ELSE prev.changedate
+                         END AS changedateprevmain,
+                         CASE
+                                WHEN ims.kind_changedate = 0
+                                AND    prev.kind_changedate = 0
+                                AND    ims.changedate < ims.start_wh2 THEN prev.end_wh2
+                                WHEN ims.kind_changedate = 1
+                                AND    prev.kind_changedate = 0 THEN prev.end_wh2
+                                WHEN ims.kind_changedate = 0
+                                AND    prev.kind_changedate = 1
+                                AND    ims.changedate < ims.start_wh2 THEN ims.start_wh2
+                                WHEN ims.kind_changedate = 0
+                                AND    ims.changedate > ims.end_wh2
+                                AND    prev.changedate < ims.end_wh2 THEN ims.end_wh2
+                                ELSE ims.changedate
+                         END AS changedatemain,
+                         ims.id_zajavka,
+                         ims.id_zapros,
+                         ims.id_system,
+                         prev.changedate AS changedateprev,
+                         ims.changedate,
+                         prev.kind_changedate AS prev_kind_changedate,
+                         ims.kind_changedate,
+                         prev.rn AS prev_rn,
+                         ims.rn,
+                         ims.completiondate_permissionrequests,
+                         prev.actiontype AS actiontype1,
+                         ims.actiontype  AS actiontype2,
+                         ims.executorid,
+                         prev.start_wh2 AS start1,
+                         prev.end_wh2   AS end1,
+                         ims.start_wh2  AS start2,
+                         ims.end_wh2    AS end2
+                  FROM   #ims           AS ims
+                  JOIN   #ims           AS prev
+                  ON     ims.id_zapros = prev.id_zapros
+                  AND    ims.rn > 1
+                  AND    ims.rn-1 = prev.rn
+                  AND    ims.daydate_fuibchangedate <> prev.daydate_fuibchangedate
+                  WHERE  1 = 1) AS iwh
+  WHERE    1 = 1
+  ORDER BY iwh.id_zapros ASC,
+           iwh.changedate ASC
+  ;commit;
+  select DISTINCT iwhh.*,
+                  CASE
+                                  WHEN datediff(mi,iwhh.changedateprevmain,iwhh.changedatemain) <= 0 THEN 0
+                                  WHEN(
+                                                                  datediff(mi,iwhh.changedateprevmain,iwhh.end1)+datediff(mi,iwhh.start2,iwhh.changedatemain)) < 0
+                                  AND             datediff(mi,iwhh.changedateprevmain,iwhh.changedatemain) > 0 THEN datediff(mi,iwhh.changedateprevmain,iwhh.changedatemain)
+                                  ELSE(datediff(mi,iwhh.changedateprevmain,iwhh.end1)+datediff(mi,iwhh.start2,iwhh.changedatemain))
+                  END                                                               AS work_minutes_rn,
+                  count(wh3.daydate_fuib) OVER(partition BY iwhh.id_zapros,iwhh.rn) AS count_day
+  INTO            #ims_w_m2
+  FROM            #ims_w         AS iwhh
+  LEFT OUTER JOIN #working_hours AS wh3
+  ON              wh3.daydate_fuib > iwhh.changedateprevmain
+  AND             wh3.daydate_fuib < iwhh.changedatemain
+  AND             wh3.kind = 0
+  WHERE           1 = 1
+  ;commit;
+  select   iwh.*
+  INTO     #ims_w_m1
+  FROM    (
+                  SELECT
+                         CASE
+                                WHEN i.kind_changedate = 0
+                                AND    i.creationdate_permreq >= i.start_
+                                AND    i.changedate <= i.end_ THEN datediff(mi,i.creationdate_permreq,i.changedate)
+                                WHEN i.kind_changedate = 0
+                                AND    i.creationdate_permreq <= i.start_
+                                AND    i.changedate <= i.end_
+                                AND    i.changedate >= i.start_ THEN datediff(mi,i.start_,i.changedate)
+                                WHEN i.kind_changedate = 0
+                                AND    i.creationdate_permreq <= i.start_
+                                AND    i.changedate >= i.end_ THEN datediff(mi,i.start_,i.end_)
+                                WHEN i.kind_changedate = 0
+                                AND    i.creationdate_permreq >= i.start_
+                                AND    i.creationdate_permreq <= i.end_
+                                AND    i.changedate >= i.end_ THEN datediff(mi,i.creationdate_permreq,i.end_)
+                                WHEN i.kind_changedate = 1 THEN 0
+                                ELSE 0
+                         END AS work_minutes_rn,
+                         0   AS count_day,
+                         i.id_zajavka,
+                         i.id_zapros,
+                         i.id_system,
+                         i.creationdate_permreq AS changedateprev,
+                         i.changedate,
+                         0 AS prev_kind_changedate,
+                         i.kind_changedate,
+                         0 AS prev_rn,
+                         i.rn,
+                         i.completiondate_permissionrequests,
+                         NULL         AS actiontype1,
+                         i.actiontype AS actiontype2,
+                         i.executorid,
+                         i.start_    AS start1,
+                         i.end_      AS end1,
+                         i.start_wh2 AS start2,
+                         i.end_wh2   AS end2
+                  FROM   #ims        AS i
+                  WHERE  i.rn = 1
+                  AND    i.daydate_fuibcreationdate = i.daydate_fuibchangedate
+                  UNION
+                  SELECT
+                         CASE
+                                WHEN ims.kind_changedate = 0
+                                AND    prev.changedate >= ims.start_wh2
+                                AND    ims.changedate <= ims.end_wh2 THEN datediff(mi,prev.changedate,ims.changedate)
+                                WHEN ims.kind_changedate = 0
+                                AND    prev.changedate <= ims.start_wh2
+                                AND    ims.changedate <= ims.end_wh2
+                                AND    ims.changedate >= ims.start_wh2 THEN datediff(mi,ims.start_wh2,ims.changedate)
+                                WHEN ims.kind_changedate = 0
+                                AND    prev.changedate <= ims.start_wh2
+                                AND    ims.changedate >= ims.end_wh2 THEN datediff(mi,ims.start_wh2,ims.end_wh2)
+                                WHEN ims.kind_changedate = 0
+                                AND    prev.changedate >= ims.start_wh2
+                                AND    prev.changedate <= ims.end_wh2
+                                AND    ims.changedate >= ims.end_wh2 THEN datediff(mi,prev.changedate,ims.end_wh2)
+                                WHEN ims.kind_changedate = 1 THEN 0
+                                ELSE 0
+                         END AS work_minutes_rn,
+                         0   AS count_day,
+                         ims.id_zajavka,
+                         ims.id_zapros,
+                         ims.id_system,
+                         prev.changedate AS changedateprev,
+                         ims.changedate,
+                         prev.kind_changedate AS prev_kind_changedate,
+                         ims.kind_changedate,
+                         prev.rn AS prev_rn,
+                         ims.rn,
+                         ims.completiondate_permissionrequests,
+                         prev.actiontype AS actiontype1,
+                         ims.actiontype  AS actiontype2,
+                         ims.executorid,
+                         prev.start_wh2 AS start1,
+                         prev.end_wh2   AS end1,
+                         ims.start_wh2  AS start2,
+                         ims.end_wh2    AS end2
+                  FROM   #ims           AS ims
+                  JOIN   #ims           AS prev
+                  ON     ims.id_zapros = prev.id_zapros
+                  AND    ims.rn > 1
+                  AND    ims.rn-1 = prev.rn
+                  AND    ims.daydate_fuibchangedate = prev.daydate_fuibchangedate
+                  WHERE  1 = 1) AS iwh
+  WHERE    1 = 1
+  ORDER BY iwh.id_zajavka ASC,
+           iwh.id_zapros ASC,
+           iwh.changedate ASC
+  ;commit;
+  select   s.*
+  INTO     #ims_w_m3
+  FROM    (
+                  SELECT ww1.work_minutes_rn AS work_min,
+                         ww1.work_minutes_rn,
+                         ww1.id_zajavka,
+                         ww1.id_zapros,
+                         ww1.id_system,
+                         ww1.changedateprev,
+                         ww1.changedate,
+                         ww1.rn,
+                         0 count_day,
+                         ww1.completiondate_permissionrequests,
+                         ww1.actiontype2,
+                         ww1.executorid
+                  FROM   #ims_w_m1 AS ww1
+                  UNION
+                  SELECT case when ww2.count_day>=1 then ww2.work_minutes_rn+(ww2.count_day-1)*540 
+						 else ww2.work_minutes_rn end  AS work_min,
+                         ww2.work_minutes_rn,
+                         ww2.id_zajavka,
+                         ww2.id_zapros,
+                         ww2.id_system,
+                         ww2.changedateprev,
+                         ww2.changedate,
+                         ww2.rn,
+                         ww2.count_day,
+                         ww2.completiondate_permissionrequests,
+                         ww2.actiontype2,
+                         ww2.executorid
+                  FROM   #ims_w_m2 AS ww2) AS s
+  ORDER BY s.id_zajavka ASC,
+           s.id_zapros ASC,
+           s.changedateprev ASC,
+           s.changedate ASC
+  ;commit;
+
+select
+case
+when data1.actiontype='Soglasovanie'
+and (data1.id_system in (1,2,4,5,7,8,9,11,12,13,14,15,18,20,21,22,23,24,26,27,29,32,33,69,74,86,88,89,90,91,93,94,103,106,109,110,111,114,165,199,222,221,224,225,226,228,229,230,241)
+or (data1.id_system between 35 and 81) or (data1.id_system between 232 and 239)) then 8
+when data1.actiontype='Kontrol' and  (data1.id_system in (1,7,8,11,23,41,48,49,50,55,56,58,72,80,81,103,109,165,225,228,229,241)
+or (data1.id_system between 61 and 69) or (data1.id_system between 232 and 238))  then 8
+when data1.actiontype='Admin' and (data1.id_system in (51,68,74,80,111,165,229,224,225) or (data1.id_system between 232 and 239)) then 8
+when data1.actiontype= 'Kontrol' and  data1.id_system in (32,43,62,70,114)  then 1
+when data1.actiontype= 'Kontrol' and  data1.id_system in (15,54) then 10
+when data1.actiontype= 'Kontrol' and data1.id_system = 20  then 11
+when data1.actiontype= 'Kontrol' and (data1.id_system  in (2,4,5,12,13,14,18,21,22,24,26,27,29,33,46,51,53,59,60,71,74,75,77,79,86,88,89,90,91,93,94,106,110,111,199,221,222,226,230)
+or (data1.id_system  between 35 and 42))  then 12
+when  data1.actiontype= 'Kontrol' and  data1.id_system = 47  then 19
+when data1.actiontype= 'Kontrol' and  data1.id_system in (9,45)  then 24
+when data1.actiontype= 'Admin' and  data1.id_system in (13,106,199)  then 2
+when data1.actiontype= 'Admin' and  data1.id_system in (103,81)  then 3
+when data1.actiontype= 'Admin' and  data1.id_system in (37,41,43,47,110) then 4
+when data1.actiontype= 'Admin' and  data1.id_system in (1,4,14,29,39,48,60,70,71,72)  then 5
+when data1.actiontype= 'Admin' and  data1.id_system in (12,59,69,230,241,239)  then 6
+when data1.actiontype= 'Admin' and  data1.id_system in (15,49,50,75,77,226)  then 7
+when data1.actiontype= 'Admin' and  data1.id_system in (24,66)  then 9
+when data1.actiontype= 'Admin' and  data1.id_system =53  then 12
+when data1.actiontype= 'Admin' and  data1.id_system = 114 then 16
+when data1.actiontype= 'Admin' and  data1.id_system = 62 then 18
+when data1.actiontype= 'Admin' and  data1.id_system in (2,5,7,8,9,11,18,20,21,22,23,26,27, 32,33,35,36,40,42,45,46,54,55,56,58,61,64,65,79,86,88,89,90,91,94,109,221) then 24
+when data1.actiontype= 'Admin' and  data1.id_system in (63,93,228) then 48
+when  data1.id_system in (135,137,131,220,92,78,76,57,44,38,34,31,28,25,20,17,16,10,
+6,3,95,97,98,99,101,107,111,113,115,117,118,119, 123,128,129,130,132,133,138,152,
+153,151,159,158,165,166,160,161,162,163,164,172,181,188,187,202,244,219,223,134,85,
+84, 83, 82, 240, 242, 30, 19, 100, 102, 105, 104, 121, 122, 124, 125, 126, 127, 136, 139, 140, 145, 142, 146,
+ 141, 147, 143, 144, 148, 149, 150, 154, 155, 157, 168, 169, 170, 171, 173, 174, 176, 177, 178,
+ 179, 180, 182, 183, 184, 185, 186, 189, 190, 191, 192, 193, 194, 195, 196, 197,
+ 198, 200,201, 204, 205, 206, 207, 208, 210, 211, 212, 213, 214, 215, 217, 245, 216, 218,
+ 250, 247, 248, 246, 175, 112) then 1000000 end as norm
+,data1.id_system
+,data1.actiontype
+,id_zapros
+into #norm
+FROM #ims data1
+ ORDER BY     data1.id_system ASC,
+              data1.actiontype ASC
+  ;commit;
+  select DISTINCT data.user_id,
+                  data.fullnameformat,
+                  data.userlogin,
+                  data.id_zajavka,
+                  data.id_zapros,
+                  data.id_system,
+                  data.displayname_managedsystems,
+                  data.type_permission,
+                  data.category_system,
+                  data.isrejected,
+                  data.StatusPerm,
+                  data.otziv_vida4a,
+                  data.executorid,
+                  data.executor_name,
+                  data.position,
+                  data.org,
+                  data.vertic,
+                  data.status_prws,
+                  data.visibilitylistid,
+                  data.controllerslistid,
+                  data.adminslistid,
+                  data.ControllersList,
+                  data.AdminsList,
+                  data.creationdate_permreq,
+                  data.minutes_full/60.00 as work_hours_full,
+                  tim.changedate,
+                  tim.work_min/60.00 as work_hours,
+                  tim.actiontype2,
+                  n.norm
+  FROM            #ims      AS data
+  JOIN            #ims_w_m3 AS tim
+  ON              data.id_zapros = tim.id_zapros
+  AND             data.id_zajavka = tim.id_zajavka
+  AND             data.executorid = tim.executorid
+  JOIN #norm n
+ ON  data.id_system = n.id_system
+ AND tim.actiontype2 = n.actiontype
+
+  WHERE           1 = 1
+  ORDER BY        data.displayname_managedsystems ASC,
+                  data.id_zajavka ASC,
+                  data.id_zapros ASC,
+                  tim.changedate asc
+end
