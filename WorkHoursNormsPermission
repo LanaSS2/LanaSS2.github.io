@@ -1,8 +1,7 @@
+create procedure dho_gate.up_ims_workhoursnormspermission
+(in @StartDate date,in @EndDate date)
 begin
-DECLARE @StartDate DATE;
-DECLARE @EndDate  DATE;
-SET @StartDate ='"+Format(Parameters!StartDate.Value, "yyyy-MM-dd")+"';
-set @EndDate ='"+Format(Parameters!EndDate.Value, "yyyy-MM-dd")+"';
+
   drop TABLE
   IF EXISTS #working_hours;
   drop TABLE
@@ -448,8 +447,8 @@ group by
                          ww1.executorid
                   FROM   #ims_w_m1 AS ww1
                   UNION
-                  SELECT case when ww2.count_day>=1 then ww2.work_minutes_rn+(ww2.count_day-1)*540 
-						 else ww2.work_minutes_rn end  AS work_min,
+                  SELECT case when ww2.count_day>=1 then ww2.work_minutes_rn+(ww2.count_day-1)*540
+                                                 else ww2.work_minutes_rn end  AS work_min,
                          ww2.work_minutes_rn,
                          ww2.id_zajavka,
                          ww2.id_zapros,
@@ -469,48 +468,45 @@ group by
   ;commit;
 
 select
-case
-when data1.actiontype='Soglasovanie'
-and (data1.id_system in (1,2,4,5,7,8,9,11,12,13,14,15,18,20,21,22,23,24,26,27,29,32,33,69,74,86,88,89,90,91,93,94,103,106,109,110,111,114,165,199,222,221,224,225,226,228,229,230,241)
-or (data1.id_system between 35 and 81) or (data1.id_system between 232 and 239)) then 8
-when data1.actiontype='Kontrol' and  (data1.id_system in (1,7,8,11,23,41,48,49,50,55,56,58,72,80,81,103,109,165,225,228,229,241)
-or (data1.id_system between 61 and 69) or (data1.id_system between 232 and 238))  then 8
-when data1.actiontype='Admin' and (data1.id_system in (51,68,74,80,111,165,229,224,225) or (data1.id_system between 232 and 239)) then 8
-when data1.actiontype= 'Kontrol' and  data1.id_system in (32,43,62,70,114)  then 1
-when data1.actiontype= 'Kontrol' and  data1.id_system in (15,54) then 10
-when data1.actiontype= 'Kontrol' and data1.id_system = 20  then 11
-when data1.actiontype= 'Kontrol' and (data1.id_system  in (2,4,5,12,13,14,18,21,22,24,26,27,29,33,46,51,53,59,60,71,74,75,77,79,86,88,89,90,91,93,94,106,110,111,199,221,222,226,230)
-or (data1.id_system  between 35 and 42))  then 12
-when  data1.actiontype= 'Kontrol' and  data1.id_system = 47  then 19
-when data1.actiontype= 'Kontrol' and  data1.id_system in (9,45)  then 24
-when data1.actiontype= 'Admin' and  data1.id_system in (13,106,199)  then 2
-when data1.actiontype= 'Admin' and  data1.id_system in (103,81)  then 3
-when data1.actiontype= 'Admin' and  data1.id_system in (37,41,43,47,110) then 4
-when data1.actiontype= 'Admin' and  data1.id_system in (1,4,14,29,39,48,60,70,71,72)  then 5
-when data1.actiontype= 'Admin' and  data1.id_system in (12,59,69,230,241,239)  then 6
-when data1.actiontype= 'Admin' and  data1.id_system in (15,49,50,75,77,226)  then 7
-when data1.actiontype= 'Admin' and  data1.id_system in (24,66)  then 9
-when data1.actiontype= 'Admin' and  data1.id_system =53  then 12
-when data1.actiontype= 'Admin' and  data1.id_system = 114 then 16
-when data1.actiontype= 'Admin' and  data1.id_system = 62 then 18
-when data1.actiontype= 'Admin' and  data1.id_system in (2,5,7,8,9,11,18,20,21,22,23,26,27, 32,33,35,36,40,42,45,46,54,55,56,58,61,64,65,79,86,88,89,90,91,94,109,221) then 24
-when data1.actiontype= 'Admin' and  data1.id_system in (63,93,228) then 48
-when  data1.id_system in (135,137,131,220,92,78,76,57,44,38,34,31,28,25,20,17,16,10,
-6,3,95,97,98,99,101,107,111,113,115,117,118,119, 123,128,129,130,132,133,138,152,
-153,151,159,158,165,166,160,161,162,163,164,172,181,188,187,202,244,219,223,134,85,
-84, 83, 82, 240, 242, 30, 19, 100, 102, 105, 104, 121, 122, 124, 125, 126, 127, 136, 139, 140, 145, 142, 146,
- 141, 147, 143, 144, 148, 149, 150, 154, 155, 157, 168, 169, 170, 171, 173, 174, 176, 177, 178,
- 179, 180, 182, 183, 184, 185, 186, 189, 190, 191, 192, 193, 194, 195, 196, 197,
- 198, 200,201, 204, 205, 206, 207, 208, 210, 211, 212, 213, 214, 215, 217, 245, 216, 218,
- 250, 247, 248, 246, 175, 112) then 1000000 end as norm
+ case when data1.actiontype='Soglasovanie' and (data1.id_system in (1,2,4,5,7,8,9,11,12,13,14,15,18,20,21,22,23,24,26,27,29,32,33,69,74,86,88,89,
+ 90,91,93,94,103,106,109,110,114,199,222,221,224,225,226,229,230,241) or (data1.id_system between 35 and 81) or (data1.id_system between 232 and 239)) then 8
+ when data1.actiontype='Kontrol' and  (data1.id_system in (1,7,8,11,23,41,48,49,50,55,56,58,72,80,81,103,109,225,229,241)
+ or (data1.id_system between 61 and 69) or  (data1.id_system between 232 and 238))  then 8
+ when data1.actiontype='Admin'  and (data1.id_system in (51,68,74,80,229,224,225)  or (data1.id_system between 232 and 239)) then 8
+ when data1.actiontype= 'Kontrol' and   data1.id_system in (32,43,62,70,114)  then 1
+ when data1.actiontype= 'Kontrol' and  data1.id_system in (15,54) then 10
+ when data1.actiontype= 'Kontrol'  and data1.id_system = 20  then 11
+ when data1.actiontype= 'Kontrol'  and (data1.id_system  in (2,4,5,12,13,14,18,21,22,24,26,27,29,33,46,51, 53,59,60,71,74,
+ 75,77,79,86,88,89,90,91,93,94,106,110,199,221,222,226,230) or (data1.id_system  between 35 and 42))  then 12
+ when  data1.actiontype= 'Kontrol' and  data1.id_system = 47  then 19
+ when  data1.actiontype= 'Kontrol'  and  data1.id_system in (9,45) then 24
+ when data1.actiontype= 'Admin'  and  data1.id_system in (13,106,199) then 2
+ when data1.actiontype= 'Admin' and  data1.id_system in (103,81)  then 3 when data1.actiontype= 'Admin' and  data1.id_system in (37,41,43,47,110) then 4
+ when data1.actiontype= 'Admin' and  data1.id_system in (1,4,14,29,39,48,60,70,71,72)  then 5
+ when data1.actiontype= 'Admin'  and  data1.id_system in (12,59,69,230,241,239)  then 6
+ when data1.actiontype= 'Admin' and  data1.id_system in (15,49,50,75,77,226)  then 7
+ when data1.actiontype= 'Admin' and  data1.id_system in (24,66)  then 9
+ when data1.actiontype= 'Admin' and  data1.id_system =53  then 12
+ when data1.actiontype= 'Admin' and  data1.id_system = 114 then 16
+ when data1.actiontype= 'Admin' and  data1.id_system = 62 then 18
+ when data1.actiontype= 'Admin' and  data1.id_system in (2,5,7,8,9,11,18,20,21,22,23,26,27, 32,33,35,36,40,42,45,46,54,55,56,58,61,64,65,79,86,88,89,90,91,94,109,221) then 24
+ when data1.actiontype= 'Admin' and  data1.id_system in (63,93) then 48
+ when  data1.id_system in (135,137,131,220,92,78,76,57, 44,38,34,31,28,25,17,16,10, 6,3,95,97,98,99,101,107,111,113, 115,117,118,119, 123,128,129,130,132,133,138,152,
+ 153,151,159, 158,165,166,160,161,162,163,164,172,181,188,187,202,228,244,219,223,
+ 134,85, 84, 83, 82, 240, 242, 30, 19, 100, 102, 105, 104, 121,  122, 124, 125, 126, 127, 136, 139, 140, 145, 142, 146,
+ 141, 147, 143, 144, 148, 149, 150, 154, 155, 157, 168, 169,  170, 171, 173, 174, 176, 177, 178,  179, 180, 182, 183, 184,
+ 185, 186, 189, 190, 191, 192, 193, 194, 195, 196, 197,  198,  200,201, 204, 205, 206, 207, 208, 210, 211, 212, 213, 214, 215, 217,
+ 245, 243, 216, 218,  250, 247, 248, 246, 175, 112) then 1000000 end as norm
+
 ,data1.id_system
 ,data1.actiontype
 ,id_zapros
 into #norm
 FROM #ims data1
- ORDER BY     data1.id_system ASC,
-              data1.actiontype ASC
+ORDER BY     data1.id_system ASC,
+             data1.actiontype ASC
   ;commit;
+
   select DISTINCT data.user_id,
                   data.fullnameformat,
                   data.userlogin,
@@ -539,7 +535,10 @@ FROM #ims data1
                   tim.changedate,
                   tim.work_min/60.00 as work_hours,
                   tim.actiontype2,
-                  n.norm
+                  case when n.norm<>1000000 then n.norm else null end as norm,
+                  case when n.norm<>1000000 then n.norm-(tim.work_min/60.00) else null end as diff_sla,
+                  case when n.norm<>1000000 and  (n.norm-(tim.work_min/60.00))<0 then n.norm-(tim.work_min/60.00) else null end as outside_sla
+
   FROM            #ims      AS data
   JOIN            #ims_w_m3 AS tim
   ON              data.id_zapros = tim.id_zapros
@@ -548,10 +547,11 @@ FROM #ims data1
   JOIN #norm n
  ON  data.id_system = n.id_system
  AND tim.actiontype2 = n.actiontype
-
   WHERE           1 = 1
   ORDER BY        data.displayname_managedsystems ASC,
                   data.id_zajavka ASC,
                   data.id_zapros ASC,
                   tim.changedate asc
-end
+
+end;
+GRANT EXECUTE on dho_gate.up_ims_workhoursnormspermission to SSRSGate; 
