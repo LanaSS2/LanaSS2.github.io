@@ -1,18 +1,8 @@
 BEGIN
 DECLARE @Date_fuib1 date = '2020-08-01';
 --'"+Format(Parameters!d1.Value, "yyyy-MM-dd")+"';
-DECLARE @Date_fuib2 date = '2020-12-01';
+DECLARE @Date_fuib2 date = '2020-11-01';
 --'"+Format(Parameters!d2.Value, "yyyy-MM-dd")+"';
-
-
-create table ltb_descryption (reportdate, stable_liab_gross, working_assets_gross, stable_liab_net , stab_liab_net_dev , working_assets_net
-
-
-
-
-
-
-
 SELECT   reportdate  ,
          EDRPOU  ,
  CASE WHEN OrderN=44 THEN 'CURRENT accounts FL'   WHEN OrderN=49 THEN 'CURRENT accounts CorpCl'
@@ -74,8 +64,8 @@ GROUP BY pol.OrdN,
          u.reportdate;
 COMMIT;
 
-select * from  #xmlf02_balance_pol_min;
-end
+--select * from  #xmlf02_balance_pol_min;
+
 
 
 SELECT   MAX(aa.FL_FCY_fiz) AS F_FCY ,
@@ -143,7 +133,7 @@ END AS FL_USD_jur ,CASE WHEN bpm.OrdN='CURRENT accounts CorpCl'
 END AS FL_EUR_jur ,bpm.OrdN ,bpm.EDRPOU
 FROM #xmlf02_balance_pol_min AS bpm left join #xmlf02_balance AS xb ON bpm.EDRPOU = xb.EDRPOU
     AND  bpm.OrdN = xb.OrdN
-    AND xb.reportdate<=Date_fuib2  and xb.reportdate>=@Date_fuib1) AS aa -----??даты!!
+    AND xb.reportdate<=@Date_fuib2  and xb.reportdate>=@Date_fuib1) AS aa -----??даты!!
 GROUP BY aa.EDRPOU;
 COMMIT;
 ----------по такой же схеме
@@ -238,10 +228,42 @@ WHERE 1=1
 GROUP BY  reportdate,
          EDRPOU;
 COMMIT;
-SELECT     (isnull(slg.[67],0)-isnull(slg.[20],0)-isnull(slg.[19],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+  isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0) AS stable_liab_gross,
-         isnull(slg.[10],0)+ isnull(slg.[11],0)+ isnull(slg.[15],0)+ isnull(slg.[4],0)*fl.L_FCY AS working_assets_gross,
-         (isnull(slg.[67],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+ isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0) AS stable_liab_net ,
-CASE WHEN isnull(slg.[69],0)=0 THEN 0
+
+select * from  #consolidated_balance_FCY;
+
+
+
+select  'stable_liab_gross',
+isnull(slg.[67],0),
+isnull(slg.[20],0),
+isnull(slg.[19],0),
+isnull(slg.[26],0),
+isnull(slg.[29],0),
+isnull(slg.[37],0),
+isnull(slg.[42],0),
+isnull(slg.[45],0),
+isnull(slg.[46],0),
+isnull(slg.[49],0),
+isnull(slg.[50],0),
+isnull(slg.[53],0),
+isnull(slg.[54],0),
+'working_assets_gross',
+isnull(slg.[10],0),
+isnull(slg.[11],0),
+isnull(slg.[15],0),
+isnull(slg.[4],0),
+'stable_liab_net',
+
+
+SELECT     (isnull(slg.[67],0)-isnull(slg.[20],0)-isnull(slg.[19],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+  isnull(slg.[37],0)+isnull(slg.[42],0)+
+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0) AS stable_liab_gross,
+
+         isnull(slg.[10],0)+ isnull(slg.[11],0)+ isnull(slg.[15],0)+ isnull(slg.[4],0)*fl.L_FCY AS working_assets_gross  ,
+
+         (isnull(slg.[67],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+  isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+
+         isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0) AS stable_liab_net  ,
+
+         CASE WHEN isnull(slg.[69],0)=0 THEN 0
 ELSE ((isnull(slg.[67],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+  isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+  isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0))/(isnull(slg.[69],0))
 END AS stab_liab_net_dev,
          isnull(slg.[10],0)+ isnull(slg.[21],0)+ isnull(slg.[13],0)+ isnull(slg.[4],0)*fl.L_FCY AS working_assets_net,
