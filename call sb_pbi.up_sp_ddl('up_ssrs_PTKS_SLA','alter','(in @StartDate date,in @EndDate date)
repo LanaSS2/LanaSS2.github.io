@@ -1,0 +1,559 @@
+call sb_pbi.up_sp_ddl('up_ssrs_PTKS_SLA','alter','(in @StartDate date,in @EndDate date)
+begin
+  select distinct a1.eventid,a1.ITT_ID,a1.clock_dt as clock_st_fact,a2.eventid as eventid_end,a2.clock_dt as clock_end_fact
+    into #distinct_event
+     from dfc.tb_zbx_alerts as a1
+      left outer join dfc.tb_zbx_alerts as a2 on a1.eventid = a2.p_eventid and a2.clock_dt = (select min(a3.clock_dt) from dfc.tb_zbx_alerts as a3 where a2.p_eventid = a3.p_eventid)
+    where cast(a1.clock_dt as date)<= @EndDate and cast(a1.clock_dt as date)>= @StartDate
+    and a1.clock_dt = (select max(a.clock_dt) from dfc.tb_zbx_alerts as a where a1.eventid = a.eventid)
+       and(case when a1.[message] like ''%ashin error%'' then 1
+    when a1.[message] like ''%rinter error%'' then 1 when a1.[message] like ''%o paper%'' then 1
+    when a1.[message] like ''%onnection LOST%'' then 1 else 0 end) = 1;
+  commit work;
+  select distinct
+    a1.eventid,
+    a2.eventid as inh_eventid,
+    a2.p_eventid,
+    a1.ITT_ID,
+    spr.ITT_ID as spr_ITT_ID,
+    spr.model,
+    spr.RC,
+    spr.BRCA,
+    spr.address,
+    spr.region,
+    serial_number,
+    spr.service,
+    a0.clock_st_fact as clock_st_fact,
+    a0.clock_end_fact as clock_end_fact,
+    DATEPART(caldayofweek,a0.clock_st_fact) as num_dayofweek_st,
+    DATEPART(caldayofweek,a0.clock_end_fact) as num_dayofweek_end,
+    case when DATEPART(caldayofweek,a0.clock_st_fact) = 1 then cast(a0.clock_st_fact as date)+cast(spr.Mon_start as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 2 then cast(a0.clock_st_fact as date)+cast(spr.Tue_start as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 3 then cast(a0.clock_st_fact as date)+cast(spr.Wed_start as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 4 then cast(a0.clock_st_fact as date)+cast(spr.Thu_start as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 5 then cast(a0.clock_st_fact as date)+cast(spr.Fri_start as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 6 then cast(a0.clock_st_fact as date)+cast(spr.Sat_start as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 7 then cast(a0.clock_st_fact as date)+cast(spr.Sun_start as time)
+    else null
+    end as start_sch,
+    case when DATEPART(caldayofweek,a0.clock_st_fact) = 1 then cast(a0.clock_st_fact as date)+cast(spr.Mon_finish as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 2 then cast(a0.clock_st_fact as date)+cast(spr.Tue_finish as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 3 then cast(a0.clock_st_fact as date)+cast(spr.Wed_finish as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 4 then cast(a0.clock_st_fact as date)+cast(spr.Thu_finish as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 5 then cast(a0.clock_st_fact as date)+cast(spr.Fri_finish as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 6 then cast(a0.clock_st_fact as date)+cast(spr.Sat_finish as time)
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 7 then cast(a0.clock_st_fact as date)+cast(spr.Sun_finish as time)
+    else null
+    end as end_sch_prevday,
+    case when DATEPART(caldayofweek,a0.clock_end_fact) = 1 then cast(a0.clock_end_fact as date)+cast(spr.Mon_finish as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 2 then cast(a0.clock_end_fact as date)+cast(spr.Tue_finish as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 3 then cast(a0.clock_end_fact as date)+cast(spr.Wed_finish as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 4 then cast(a0.clock_end_fact as date)+cast(spr.Thu_finish as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 5 then cast(a0.clock_end_fact as date)+cast(spr.Fri_finish as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 6 then cast(a0.clock_end_fact as date)+cast(spr.Sat_finish as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 7 then cast(a0.clock_end_fact as date)+cast(spr.Sun_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 1 then cast(a0.clock_st_fact as date)+cast(spr.Mon_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 2 then cast(a0.clock_st_fact as date)+cast(spr.Tue_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 3 then cast(a0.clock_st_fact as date)+cast(spr.Wed_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 4 then cast(a0.clock_st_fact as date)+cast(spr.Thu_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 5 then cast(a0.clock_st_fact as date)+cast(spr.Fri_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 6 then cast(a0.clock_st_fact as date)+cast(spr.Sat_finish as time)
+    when a0.clock_end_fact is null and DATEPART(caldayofweek,a0.clock_st_fact) = 7 then cast(a0.clock_st_fact as date)+cast(spr.Sun_finish as time)
+    else null
+    end as end_sch,
+    case when DATEPART(caldayofweek,a0.clock_end_fact) = 1 then cast(a0.clock_end_fact as date)+cast(spr.Mon_start as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 2 then cast(a0.clock_end_fact as date)+cast(spr.Tue_start as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 3 then cast(a0.clock_end_fact as date)+cast(spr.Wed_start as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 4 then cast(a0.clock_end_fact as date)+cast(spr.Thu_start as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 5 then cast(a0.clock_end_fact as date)+cast(spr.Fri_start as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 6 then cast(a0.clock_end_fact as date)+cast(spr.Sat_start as time)
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 7 then cast(a0.clock_end_fact as date)+cast(spr.Sun_start as time)
+    else null
+    end as start_sch_nextday,
+    case when DATEPART(caldayofweek,a0.clock_st_fact) = 1 then datediff(ss,cast(spr.Mon_start as time),cast(spr.Mon_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 1 and spr.Mon_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 2 then datediff(ss,cast(spr.Tue_start as time),cast(spr.Tue_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 2 and spr.Tue_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 3 then datediff(ss,cast(spr.Wed_start as time),cast(spr.Wed_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 3 and spr.Wed_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 4 then datediff(ss,cast(spr.Thu_start as time),cast(spr.Thu_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 4 and spr.Thu_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 5 then datediff(ss,cast(spr.Fri_start as time),cast(spr.Fri_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 5 and spr.Fri_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 6 then datediff(ss,cast(spr.Sat_start as time),cast(spr.Sat_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 6 and spr.Sat_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 7 then datediff(ss,cast(spr.Sun_start as time),cast(spr.Sun_finish as time))
+    when DATEPART(caldayofweek,a0.clock_st_fact) = 7 and spr.Sun_finish = ''23:59:00'' then 86400
+    else null
+    end as fulltimework_perday_st,
+    case when DATEPART(caldayofweek,a0.clock_end_fact) = 1 then datediff(ss,cast(spr.Mon_start as time),cast(spr.Mon_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 1 and spr.Mon_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 2 then datediff(ss,cast(spr.Tue_start as time),cast(spr.Tue_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 2 and spr.Tue_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 3 then datediff(ss,cast(spr.Wed_start as time),cast(spr.Wed_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 3 and spr.Wed_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 4 then datediff(ss,cast(spr.Thu_start as time),cast(spr.Thu_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 4 and spr.Thu_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 5 then datediff(ss,cast(spr.Fri_start as time),cast(spr.Fri_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 5 and spr.Fri_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 6 then datediff(ss,cast(spr.Sat_start as time),cast(spr.Sat_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 6 and spr.Sat_finish = ''23:59:00'' then 86400
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 7 then datediff(ss,cast(spr.Sun_start as time),cast(spr.Sun_finish as time))
+    when DATEPART(caldayofweek,a0.clock_end_fact) = 7 and spr.Sun_finish = ''23:59:00'' then 86400
+    else null
+    end as fulltimework_perday_end,
+    datediff(dd,a0.clock_st_fact,a0.clock_end_fact) as datediff_dd,
+    datediff(ss,a0.clock_st_fact,a0.clock_end_fact) as datediff_ss,
+    case when a1.[message] like ''%ashin error%'' then ''Cashin error''
+    when a1.[message] like ''%rinter error%'' then ''Printer error'' when a1.[message] like ''%o paper%'' then ''Printer error''
+    when a1.[message] like ''%onnection LOST%'' then ''Out of service'' end as Type_mist,
+    case when spr.Mon_start <> ''00:00'' and spr.Mon_start <> ''0:00'' and spr.Mon_start <> ''00-01''
+    and spr.Mon_start is not null and spr.Mon_finish <> ''23:59'' and spr.Mon_finish <> ''23-59''
+    and spr.Mon_finish is not null
+    and spr.Fri_start <> ''00:00'' and spr.Fri_start <> ''00-01'' and spr.Fri_start is not null
+    and spr.Fri_finish <> ''23:59'' and spr.Fri_finish <> ''23-59'' and spr.Fri_finish is not null
+    and spr.Sat_start is null and spr.Sat_finish is null and spr.Sun_start is null
+    and spr.Sun_finish is null then 9 else 24 end as service_mustbe,
+    spr.Mon_start,
+    spr.Mon_finish,
+    spr.Wed_start,
+    spr.Wed_finish,
+    spr.Fri_start,
+    spr.Fri_finish,
+    spr.Sat_start,
+    spr.Sat_finish,
+    spr.Sun_finish
+    into #tb_general
+    from dfc.tb_zbx_alerts as a1
+      join #distinct_event as a0 on a1.eventid = a0.eventid
+      left outer join dfc.tb_zbx_alerts as a2 on a1.eventid = a2.p_eventid
+      left outer join dfc.tb_jira_ITTspr as spr on a1.ITT_ID = spr.ITT_ID
+   where cast(a0.clock_st_fact as date)<= @EndDate
+    and cast(a0.clock_st_fact as date)>= @StartDate
+    and a1.p_eventid is null;
+  commit work;
+  select t1.DayDate_fuib,aa.eventid,aa.clock_st_fact,aa.clock_end_fact,t1.kind,
+    case when DATEPART(caldayofweek,t1.DayDate_fuib) = 1 then cast(t1.DayDate_fuib as date)+cast(spr.Mon_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 2 then cast(t1.DayDate_fuib as date)+cast(spr.Tue_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 3 then cast(t1.DayDate_fuib as date)+cast(spr.Wed_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 4 then cast(t1.DayDate_fuib as date)+cast(spr.Thu_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 5 then cast(t1.DayDate_fuib as date)+cast(spr.Fri_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 6 then cast(t1.DayDate_fuib as date)+cast(spr.Sat_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 7 then cast(t1.DayDate_fuib as date)+cast(spr.Sun_start as time)
+    else null
+    end as start_sch_Today,
+    case when DATEPART(caldayofweek,t1.DayDate_fuib) = 1 then cast(t1.DayDate_fuib as date)+cast(spr.Mon_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 2 then cast(t1.DayDate_fuib as date)+cast(spr.Tue_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 3 then cast(t1.DayDate_fuib as date)+cast(spr.Wed_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 4 then cast(t1.DayDate_fuib as date)+cast(spr.Thu_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 5 then cast(t1.DayDate_fuib as date)+cast(spr.Fri_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 6 then cast(t1.DayDate_fuib as date)+cast(spr.Sat_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 7 then cast(t1.DayDate_fuib as date)+cast(spr.Sun_finish as time)
+    else null
+    end as end_sch_Today,DATEPART(caldayofweek,t1.DayDate_fuib) as dayofweek_Today,
+    datediff(ss,start_sch_Today,end_sch_Today) as worktimeperday,
+    aa.ITT_ID
+    into #countworkday
+    from #distinct_event as aa
+       left outer join dfc.tb_sc_vToday as t1 on cast(t1.DayDate_fuib as date) >= cast(aa.clock_st_fact as date)
+      and ((cast(t1.DayDate_fuib as date) <= cast(aa.clock_end_fact as date)) or (aa.clock_end_fact is null))
+      and t1.DayDate_fuib >= @StartDate and t1.DayDate_fuib <= @EndDate
+      left outer join dfc.tb_jira_ITTspr as spr on aa.ITT_ID = spr.ITT_ID;
+  commit work;
+  select row_number() over(partition by g.ITT_ID,cast(g.clock_st_fact as date) order by g.clock_st_fact asc) as rn,
+    row_number() over(partition by g.ITT_ID order by DayDate_fuib asc,g.clock_st_fact asc,g.clock_end_fact asc) as rn3,
+    case when g.num_dayofweek_st in( 6,7 ) and g.start_sch is null and g.end_sch is not null then
+      cast(g.clock_end_fact as date)+cast(g.Mon_start as time) else g.start_sch end as start_sch_main,
+    case when g.num_dayofweek_end in( 6,7 ) and g.end_sch is null and g.start_sch is not null then
+      cast(g.clock_st_fact as date)+cast(g.Fri_finish as time) else g.end_sch end as end_sch_main,
+    g.*,
+    cw.start_sch_Today,
+    cw.end_sch_Today,
+    cw.dayofweek_Today,
+    cw.worktimeperday,
+    cw.DayDate_fuib,
+    cw.kind
+    into #tb_general_v2
+    from #tb_general as g
+      join #countworkday as cw on g.eventid = cw.eventid
+    where 1 = 1 and g.Type_mist in( ''Cashin error'',''Out of service'',''Printer error'' ) ;
+  commit work;
+  select ''gg.datediff_dd=0 and gg.service_mustbe=9'' as type_table,
+    case when gg.clock_st_fact < gg.start_sch_main and gg.clock_end_fact > gg.start_sch_main then gg.start_sch_main
+    when gg.clock_st_fact > gg.end_sch_main then gg.clock_end_fact else gg.clock_st_fact end as st_fact_sch,
+    case when gg.clock_end_fact > gg.end_sch_main and gg.clock_st_fact < gg.end_sch_main then gg.end_sch_main
+    when gg.clock_end_fact < gg.start_sch_main then gg.clock_st_fact else gg.clock_end_fact end as end_fact_sch,
+    gg.*
+    into #tb_general_v3
+    from #tb_general_v2 as gg
+    where gg.datediff_dd = 0
+    and gg.service_mustbe = 9
+    and gg.Mon_start is not null and gg.Mon_finish is not null
+    and gg.Wed_start is not null and gg.Wed_finish is not null
+    and gg.Fri_start is not null and gg.Fri_finish is not null;
+  commit work;
+
+  select ''gg.datediff_dd is null 0 and gg.service_mustbe=9'' as type_table,
+    case when gg.clock_st_fact < gg.start_sch_main and gg.clock_end_fact is null then gg.start_sch_main
+    when gg.clock_st_fact > gg.end_sch_main and gg.clock_end_fact is null then gg.end_sch_main else gg.clock_st_fact end as st_fact_sch,
+    case when gg.clock_end_fact is null then gg.end_sch_main end as end_fact_sch,
+    gg.*
+    into #tb_general_v34
+    from #tb_general_v2 as gg
+    where gg.datediff_dd is null
+    and gg.service_mustbe = 9
+    and gg.Mon_start is not null and gg.Mon_finish is not null
+    and gg.Wed_start is not null and gg.Wed_finish is not null
+    and gg.Fri_start is not null and gg.Fri_finish is not null;
+  commit work;
+  select case when geg.num_dayofweek_st in( 1,2,3,4,5 ) and geg.clock_st_fact > geg.start_sch_main
+    and geg.clock_st_fact < geg.end_sch_prevday and cast(geg.clock_st_fact as date) = geg.DayDate_fuib
+    and cast(clock_end_fact as date) > geg.DayDate_fuib then datediff(ss,geg.clock_st_fact,geg.end_sch_Today)
+    when geg.num_dayofweek_end in( 1,2,3,4,5 ) and geg.clock_end_fact > geg.start_sch_nextday
+    and geg.clock_end_fact < geg.end_sch_main and cast(geg.clock_end_fact as date) = geg.DayDate_fuib
+    and cast(geg.clock_st_fact as date) < geg.DayDate_fuib then datediff(ss,geg.start_sch_Today,geg.clock_end_fact)
+    when geg.num_dayofweek_st in( 1,2,3,4,5 ) and cast(geg.clock_st_fact as date) = geg.DayDate_fuib
+    and cast(geg.clock_end_fact as date) > geg.DayDate_fuib and geg.clock_st_fact > geg.end_sch_prevday then 0
+    when geg.num_dayofweek_end in( 1,2,3,4,5 ) and cast(geg.clock_end_fact as date) = geg.DayDate_fuib
+    and cast(geg.clock_st_fact as date) < geg.DayDate_fuib and geg.clock_end_fact < geg.start_sch_nextday then 0
+    when geg.num_dayofweek_end in( 6,7 ) and cast(geg.clock_end_fact as date) = geg.DayDate_fuib
+    and cast(geg.clock_st_fact as date) < geg.DayDate_fuib then 0
+    when geg.num_dayofweek_st in( 6,7 ) and cast(geg.clock_st_fact as date) = geg.DayDate_fuib
+    and cast(geg.clock_end_fact as date) > geg.DayDate_fuib then 0
+    else geg.worktimeperday
+    end as errortimeperday,
+    geg.*
+    into #tb_general_v4
+    from #tb_general_v2 as geg
+    where geg.datediff_dd > 0 and geg.service_mustbe = 9
+    and geg.Mon_start is not null and geg.Mon_finish is not null
+    and geg.Wed_start is not null and geg.Wed_finish is not null
+    and geg.Fri_start is not null and geg.Fri_finish is not null;
+  commit work;
+  select distinct
+    case when vv.fullerrortimess < 0 then 0 else vv.fullerrortimess end as fullerrortimess,
+    case when vv.Type_mist = ''Cashin error'' then fullerrortimess end as fullerrortime_CE,
+    case when vv.Type_mist = ''Out of service'' then fullerrortimess end as fullerrortime_OOS,
+    case when vv.Type_mist = ''Printer error'' then fullerrortimess end as fullerrortime_PE,
+    case when vv.Type_mist = ''Cashin error'' then errortimeperday end as errortimeperday_CE,
+    case when vv.Type_mist = ''Out of service'' then errortimeperday end as errortimeperday_OOS,
+    case when vv.Type_mist = ''Printer error'' then errortimeperday end as errortimeperday_PE,
+    vv.errortimeperday,
+    vv.worktimeperday,
+    vv.dayofweek_Today,
+    vv.DayDate_fuib,
+    vv.kind,
+    vv.eventid,
+    vv.inh_eventid,
+    vv.p_eventid,
+    vv.ITT_ID,
+    vv.spr_ITT_ID,
+    vv.clock_st_fact,
+    vv.clock_end_fact,
+    vv.num_dayofweek_st,
+    vv.num_dayofweek_end,
+    vv.datediff_dd,
+    vv.Type_mist,
+    vv.service_mustbe,
+    vv.model,
+    vv.RC,
+    vv.BRCA,
+    vv.address,
+    vv.region,
+    vv.serial_number,
+    vv.service
+    into #tb_general_v5
+    from(select datediff(ss,st_fact_sch,end_fact_sch) as fullerrortimess,
+        datediff(ss,st_fact_sch,end_fact_sch) as errortimeperday,
+        worktimeperday,
+        dayofweek_Today,
+        DayDate_fuib,
+        kind,
+        eventid,
+        inh_eventid,
+        p_eventid,
+        ITT_ID,
+        spr_ITT_ID,
+        clock_st_fact,
+        clock_end_fact,
+        num_dayofweek_st,
+        num_dayofweek_end,
+        datediff_dd,
+        Type_mist,
+        service_mustbe,
+        model,
+        RC,
+        BRCA,
+        address,
+        region,
+        serial_number,
+        service
+        from #tb_general_v3 union all
+        select datediff(ss,st_fact_sch,end_fact_sch) as fullerrortimess,
+        datediff(ss,st_fact_sch,end_fact_sch) as errortimeperday,
+        worktimeperday,
+        dayofweek_Today,
+        DayDate_fuib,
+        kind,
+        eventid,
+        inh_eventid,
+        p_eventid,
+        ITT_ID,
+        spr_ITT_ID,
+        clock_st_fact,
+        clock_end_fact,
+        num_dayofweek_st,
+        num_dayofweek_end,
+        datediff_dd,
+        Type_mist,
+        service_mustbe,
+        model,
+        RC,
+        BRCA,
+        address,
+        region,
+        serial_number,
+        service
+        from #tb_general_v34 union all
+      select datediff_ss as fullerrortimess,
+        errortimeperday,
+        worktimeperday,
+        dayofweek_Today,
+        DayDate_fuib,
+        kind,
+        eventid,
+        inh_eventid,
+        p_eventid,
+        ITT_ID,
+        spr_ITT_ID,
+        clock_st_fact,
+        clock_end_fact,
+        num_dayofweek_st,
+        num_dayofweek_end,
+        datediff_dd,
+        Type_mist,
+        service_mustbe,
+        model,
+        RC,
+        BRCA,
+        address,
+        region,
+        serial_number,
+        service
+        from #tb_general_v4 union all
+      select null as fullerrortimess,
+        null as errortimeperday,
+        worktimeperday,
+        dayofweek_Today,
+        DayDate_fuib,
+        kind,
+        eventid,
+        inh_eventid,
+        p_eventid,
+        ITT_ID,
+        spr_ITT_ID,
+        clock_st_fact,
+        clock_end_fact,
+        num_dayofweek_st,
+        num_dayofweek_end,
+        datediff_dd,
+        Type_mist,
+        null as service_mustbe,
+        model,
+        RC,
+        BRCA,
+        address,
+        region,
+        serial_number,
+        service
+        from #tb_general_v2
+        where Mon_start is null and Mon_finish is null
+        and Wed_start is null and Wed_finish is null
+        and Fri_start is null and Fri_finish is null union all
+      select datediff_ss as fullerrortimess,
+        case when cast(clock_st_fact as date) = DayDate_fuib and cast(clock_end_fact as date) = DayDate_fuib and datediff_dd = 0 then
+          datediff(ss,clock_st_fact,clock_end_fact)
+        when cast(clock_st_fact as date) = DayDate_fuib and cast(clock_end_fact as date) > DayDate_fuib and datediff_dd > 0 then
+          datediff(ss,clock_st_fact,end_sch_Today)
+        when cast(clock_st_fact as date) = DayDate_fuib and clock_end_fact is null
+        then datediff(ss,clock_st_fact,end_sch_Today)
+        when cast(clock_end_fact as date) = DayDate_fuib and cast(clock_st_fact as date) < DayDate_fuib and datediff_dd > 0 then
+          datediff(ss,start_sch_Today,clock_end_fact)
+        else datediff(ss,start_sch_Today,end_sch_Today)
+        end as errortimeperday,worktimeperday,
+        dayofweek_Today,
+        DayDate_fuib,
+        kind,
+        eventid,
+        inh_eventid,
+        p_eventid,
+        ITT_ID,
+        spr_ITT_ID,
+        clock_st_fact,
+        clock_end_fact,
+        num_dayofweek_st,
+        num_dayofweek_end,
+        datediff_dd,
+        Type_mist,
+        service_mustbe,
+        model,
+        RC,
+        BRCA,
+        address,
+        region,
+        serial_number,
+        service
+        from #tb_general_v2
+        where service_mustbe = 24
+        and Mon_start is not null and Mon_finish is not null
+        and Wed_start is not null and Wed_finish is not null
+        and Fri_start is not null and Fri_finish is not null) as vv
+    order by vv.DayDate_fuib asc,vv.ITT_ID asc,vv.clock_st_fact asc,vv.clock_end_fact asc;
+  commit work;
+  select case when DATEPART(caldayofweek,t1.DayDate_fuib) = 1 then cast(t1.DayDate_fuib as date)+cast(spr.Mon_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 2 then cast(t1.DayDate_fuib as date)+cast(spr.Tue_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 3 then cast(t1.DayDate_fuib as date)+cast(spr.Wed_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 4 then cast(t1.DayDate_fuib as date)+cast(spr.Thu_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 5 then cast(t1.DayDate_fuib as date)+cast(spr.Fri_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 6 then cast(t1.DayDate_fuib as date)+cast(spr.Sat_start as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 7 then cast(t1.DayDate_fuib as date)+cast(spr.Sun_start as time)
+    else null
+    end as start_sch_Today,case when DATEPART(caldayofweek,t1.DayDate_fuib) = 1 then cast(t1.DayDate_fuib as date)+cast(spr.Mon_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 2 then cast(t1.DayDate_fuib as date)+cast(spr.Tue_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 3 then cast(t1.DayDate_fuib as date)+cast(spr.Wed_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 4 then cast(t1.DayDate_fuib as date)+cast(spr.Thu_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 5 then cast(t1.DayDate_fuib as date)+cast(spr.Fri_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 6 then cast(t1.DayDate_fuib as date)+cast(spr.Sat_finish as time)
+    when DATEPART(caldayofweek,t1.DayDate_fuib) = 7 then cast(t1.DayDate_fuib as date)+cast(spr.Sun_finish as time)
+    else null
+    end as end_sch_Today,0 as Error_Time_Second,
+    0 as errortimeperday_CE,
+    0 as errortimeperday_PE,
+    0 as errortimeperday_OOS,
+    datediff(ss,start_sch_Today,end_sch_Today) as worktimeperday,
+    DATEPART(caldayofweek,t1.DayDate_fuib) as dayofweek_Today,
+    t1.DayDate_fuib,
+    t1.kind,
+    spr.ITT_ID,
+    case when spr.Mon_start <> ''00:00'' and spr.Mon_start <> ''0:00'' and spr.Mon_start <> ''00-01''
+    and spr.Mon_start is not null and spr.Mon_finish <> ''23:59'' and spr.Mon_finish <> ''23-59''
+    and spr.Mon_finish is not null
+    and spr.Fri_start <> ''00:00'' and spr.Fri_start <> ''00-01'' and spr.Fri_start is not null
+    and spr.Fri_finish <> ''23:59'' and spr.Fri_finish <> ''23-59'' and spr.Fri_finish is not null
+    and spr.Sat_start is null and spr.Sat_finish is null and spr.Sun_start is null
+    and spr.Sun_finish is null then 9 else 24 end as service_mustbe,
+    spr.model,
+    spr.RC,
+    spr.BRCA,
+    spr.address,
+    spr.region,
+    spr.serial_number,
+    spr.service
+    into #SLA100
+    from(select 1 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t union all
+      select 2 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t union all
+      select 3 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t union all
+      select 4 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t union all
+      select 5 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t union all
+      select 6 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t union all
+      select 7 as dayofw,
+        t.*
+        from dfc.tb_jira_ITTspr as t) as spr
+      join dfc.tb_sc_vToday as t1 on spr.dayofw = DATEPART(caldayofweek,t1.DayDate_fuib)
+      and t1.DayDate_fuib >= @StartDate and t1.DayDate_fuib <= @EndDate
+    where not spr.ITT_ID = any(select g.ITT_ID from #tb_general_v5 as g where t1.DayDate_fuib = g.DayDate_fuib);
+  commit work;
+  select case when ab.Error_Time_Second > ab.worktimeperday and ab.errortimeperday_CE >= ab.errortimeperday_OOS and ab.errortimeperday_CE <= ab.worktimeperday then ab.errortimeperday_CE
+    when ab.Error_Time_Second > ab.worktimeperday and ab.errortimeperday_OOS >= ab.errortimeperday_CE and ab.errortimeperday_OOS <= ab.worktimeperday then ab.errortimeperday_OOS
+    when ab.Error_Time_Second > ab.worktimeperday and ab.errortimeperday_CE <= ab.worktimeperday and ab.errortimeperday_OOS <= ab.worktimeperday then ab.worktimeperday-25200
+    when ab.Error_Time_Second > ab.worktimeperday and ab.errortimeperday_CE <= ab.worktimeperday and ab.errortimeperday_OOS > ab.worktimeperday then ab.worktimeperday-21600
+    when ab.Error_Time_Second > ab.worktimeperday and ab.errortimeperday_CE > ab.worktimeperday and ab.errortimeperday_OOS > ab.worktimeperday then ab.worktimeperday
+    else ab.Error_Time_Second
+    end as Error_Time_Second,
+    ab.errortimeperday_CE,
+    ab.errortimeperday_PE,
+    ab.errortimeperday_OOS,
+    ab.worktimeperday,
+    ab.dayofweek_Today,
+    ab.DayDate_fuib,
+    ab.kind,
+    ab.ITT_ID,
+    ab.spr_ITT_ID,
+    ab.service_mustbe,
+    ab.model,
+    ab.RC,
+    ab.BRCA,
+    ab.address,
+    ab.region,
+    ab.serial_number,
+    ab.service
+    from(select case when sum(isnull(v5.errortimeperday_CE,0)) = v5.worktimeperday then worktimeperday
+        when sum(isnull(v5.errortimeperday_OOS,0)) = v5.worktimeperday then worktimeperday
+        when isnull(v5.worktimeperday,0) = 0 then 0
+        else sum(isnull(v5.errortimeperday_CE,0))+sum(isnull(v5.errortimeperday_OOS,0))
+        end as Error_Time_Second,
+        case when isnull(v5.worktimeperday,0) = 0 then 0 else sum(isnull(v5.errortimeperday_CE,0)) end as errortimeperday_CE,
+        case when isnull(v5.worktimeperday,0) = 0 then 0 else sum(isnull(v5.errortimeperday_PE,0)) end as errortimeperday_PE,
+        case when isnull(v5.worktimeperday,0) = 0 then 0 else sum(isnull(v5.errortimeperday_OOS,0)) end as errortimeperday_OOS,
+        isnull(v5.worktimeperday,0) as worktimeperday,
+        v5.dayofweek_Today,
+        v5.DayDate_fuib,
+        v5.kind,
+        v5.ITT_ID,
+        v5.spr_ITT_ID,
+        v5.service_mustbe,
+        v5.model,
+        v5.RC,
+        v5.BRCA,
+        v5.address,
+        v5.region,
+        v5.serial_number,
+        v5.service
+        from #tb_general_v5 as v5
+        group by v5.worktimeperday,
+        v5.dayofweek_Today,
+        v5.DayDate_fuib,
+        v5.kind,
+        v5.ITT_ID,
+        v5.spr_ITT_ID,
+        v5.service_mustbe,
+        v5.model,
+        v5.RC,
+        v5.BRCA,
+        v5.address,
+        v5.region,
+        v5.serial_number,
+        v5.service union
+      select sl.Error_Time_Second,
+        sl.errortimeperday_CE,
+        sl.errortimeperday_PE,
+        sl.errortimeperday_OOS,
+        isnull(sl.worktimeperday,0) as worktimeperday,
+        sl.dayofweek_Today,
+        sl.DayDate_fuib,
+        sl.kind,
+        null as ITT_ID,
+        sl.ITT_ID as spr_ITT_ID,
+        sl.service_mustbe,
+        sl.model,
+        sl.RC,
+        sl.BRCA,
+        sl.address,
+        sl.region,
+        sl.serial_number,
+        sl.service
+        from #SLA100 as sl) as ab
+    order by ab.DayDate_fuib asc,ab.ITT_ID asc;
+end');
