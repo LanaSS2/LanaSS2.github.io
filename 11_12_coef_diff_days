@@ -1,0 +1,247 @@
+BEGIN
+DECLARE @Date_fuib1 date = '2020-08-01';
+--'"+Format(Parameters!d1.Value, "yyyy-MM-dd")+"';
+DECLARE @Date_fuib2 date = '2020-10-01';
+--'"+Format(Parameters!d2.Value, "yyyy-MM-dd")+"';
+SELECT   reportdate  ,
+         EDRPOU  ,
+ CASE WHEN OrderN=44 THEN 'CURRENT accounts FL'   WHEN OrderN=49 THEN 'CURRENT accounts CorpCl'
+END AS OrdN ,
+         SUM(isnull(FCY,0)) AS 'mFCY' ,
+         SUM(isnull(mUAH,0)) AS 'mUAH' ,
+         SUM(isnull(mUSD,0)) AS 'mUSD' ,
+         SUM(isnull(mEUR,0)) AS 'mEUR' INTO #xmlf02_balance
+FROM sb_bio.tb_xmlf02_balance_uror
+---join sb_bio.tb_xmlf02_balance_uror
+WHERE OrderN IN (44,49)
+    AND  EDRPOU ='00032129'
+    --'" + Parameters!EDRPOU.Value + "'
+    AND reportdate>=DATEADD(month,-11,@Date_fuib1) and reportdate<=@Date_fuib2
+GROUP BY reportdate,
+         EDRPOU,
+         OrderN
+order by reportdate
+         ;
+COMMIT;
+
+
+select * from #xmlf02_balance;
+
+
+SELECT   reportdate  ,
+         EDRPOU  ,
+         OrdN ,
+         SUM(isnull(mFCY,0)) AS 'mFCY' ,
+         SUM(isnull(mUAH,0)) AS 'mUAH' ,
+         SUM(isnull(mUSD,0)) AS 'mUSD' ,
+         SUM(isnull(mEUR,0)) AS 'mEUR'     INTO #xmlf02_balance_pol
+FROM #xmlf02_balance
+WHERE reportdate >=DATEADD(month,-5,@Date_fuib1)  and reportdate<=@Date_fuib2
+GROUP BY reportdate,
+         EDRPOU,
+         OrdN;
+COMMIT;
+
+select * from #xmlf02_balance_pol;
+
+
+--минимальный за период полгода. несколько месяц - за полгода от каждого месяца. Кол-во коэф.= кол-во месяцев в периоде!
+SELECT   pol.mFCY AS polmFCY ,
+        /* MIN(pol.mUAH) AS polmUAH ,
+         MIN(pol.mUSD) AS polmUSD ,
+         MIN(pol.mEUR) AS polmEUR ,*/
+         pol.OrdN ,
+         pol.EDRPOU,
+         u.reportdate INTO #xmlf02_balance_pol_min
+FROM #xmlf02_balance_pol pol
+
+left join sb_bio.tb_xmlf02_balance_uror u on u.EDRPOU = pol.EDRPOU and u.reportdate >= pol.reportdate
+and u.reportdate>=@Date_fuib1  and  u.reportdate<=@Date_fuib2
+-- pol.reportdate >=DATEADD(month,-5,@Date_fuib1) and  pol.reportdate <=DATEADD(month,-5,@Date_fuib2) and pol.reportdate>=DATEADD(month,-5,u.reportdate) !!!
+--GROUP BY pol.OrdN,
+ --      pol.EDRPOU,
+  --      u.reportdate
+         order by u.reportdate ;
+COMMIT;
+
+select * from  #xmlf02_balance_pol_min;
+
+end
+
+SELECT xb.mFCY,xb.OrdN, xb.EDRPOU, u.reportdate
+FROM #xmlf02_balance AS xb
+
+join sb_bio.tb_xmlf02_balance_uror u on u.EDRPOU = xb.EDRPOU and u.reportdate >= xb.reportdate
+and u.reportdate>=@Date_fuib1  and  u.reportdate<=@Date_fuib2
+WHERE xb.reportdate >=DATEADD(month,-11,@Date_fuib1) and xb.reportdate <=DATEADD(month,-11,@Date_fuib2) and xb.reportdate>=DATEADD(month,-11,u.reportdate)
+--GROUP BY  xb.OrdN ,xb.EDRPOU, u.reportdate
+;
+
+
+end
+
+
+
+
+
+SELECT   MAX(aa.FL_FCY_fiz) AS F_FCY ,
+         MAX(aa.FL_FCY_jur) AS L_FCY ,
+         aa.EDRPOU,
+         aa.reportdate
+
+                 INTO #FL_COEFF
+FROM(
+SELECT  CASE WHEN xb.OrdN='CURRENT accounts FL'
+    AND isnull((MAX(xb.mFCY)-stddev_pop(xb.mFCY)),0)=0 THEN 0  WHEN xb.OrdN='CURRENT accounts FL'
+    AND isnull((MAX(xb.mFCY)-stddev_pop(xb.mFCY)),0)<>0 THEN round((MIN(xb.mFCY)/(MAX(xb.mFCY)-stddev_pop(xb.mFCY))),2)
+END AS FL_FCY_fiz ,
+       CASE WHEN xb.OrdN='CURRENT accounts CorpCl'
+    AND isnull((MAX(xb.mFCY)-stddev_pop(xb.mFCY)),0)=0 THEN 0  WHEN xb.OrdN='CURRENT accounts CorpCl'
+    AND isnull((MAX(xb.mFCY)-stddev_pop(xb.mFCY)),0)<>0 THEN round((MIN(xb.mFCY)/(MAX(xb.mFCY)-stddev_pop(xb.mFCY))),2)
+END AS FL_FCY_jur, xb.OrdN, xb.EDRPOU, u.reportdate
+FROM #xmlf02_balance AS xb
+
+ join sb_bio.tb_xmlf02_balance_uror u on u.EDRPOU = xb.EDRPOU and u.reportdate >= xb.reportdate
+and u.reportdate>=@Date_fuib1  and  u.reportdate<=@Date_fuib2
+WHERE xb.reportdate >=DATEADD(month,-11,@Date_fuib1) and xb.reportdate <=DATEADD(month,-11,@Date_fuib2) and xb.reportdate>=DATEADD(month,-11,u.reportdate)
+GROUP BY  xb.OrdN ,xb.EDRPOU, u.reportdate
+
+UNION
+
+SELECT  CASE WHEN bpm.OrdN='CURRENT accounts FL'
+    AND isnull(xb.mFCY,0)=0 THEN 0       WHEN bpm.OrdN='CURRENT accounts FL'
+    AND isnull(xb.mFCY,0)<>0 THEN round((bpm.polmFCY/xb.mFCY),2)
+END AS FL_FCY_fiz,
+        CASE WHEN bpm.OrdN='CURRENT accounts CorpCl'
+    AND isnull(xb.mFCY,0)=0 THEN 0       WHEN bpm.OrdN='CURRENT accounts CorpCl'
+    AND isnull(xb.mFCY,0)<>0 THEN round((bpm.polmFCY/xb.mFCY),2)
+END AS FL_FCY_jur, bpm.OrdN ,bpm.EDRPOU, xb.reportdate
+FROM #xmlf02_balance_pol_min AS bpm
+ join #xmlf02_balance AS xb ON bpm.EDRPOU = xb.EDRPOU and bpm.reportdate = xb.reportdate
+    AND  bpm.OrdN = xb.OrdN
+    AND xb.reportdate<=@Date_fuib2  and xb.reportdate>=@Date_fuib1) AS aa
+GROUP BY aa.EDRPOU,  aa.reportdate
+;
+COMMIT;
+------
+
+select * from  #FL_COEFF;
+end
+
+
+
+SELECT  SUM(CASE WHEN  OrderN = 2 THEN FCY
+END) AS '2' ,
+         SUM(CASE WHEN  OrderN = 3 THEN FCY
+END) AS '3' ,
+         SUM(CASE WHEN  OrderN = 4 THEN FCY
+END) AS '4' ,
+         SUM(CASE WHEN  OrderN = 5 THEN FCY
+END) AS '5' ,
+         SUM(CASE WHEN  OrderN = 9 THEN FCY
+END) AS '9' ,
+         SUM(CASE WHEN  OrderN = 10 THEN FCY
+END) AS '10' ,
+         SUM(CASE WHEN  OrderN = 11 THEN FCY
+END) AS '11' ,
+         SUM(CASE WHEN  OrderN = 13 THEN FCY
+END) AS '13' ,
+         SUM(CASE WHEN  OrderN = 15 THEN FCY
+END) AS '15' ,
+         SUM(CASE WHEN  OrderN = 19 THEN FCY
+END) AS '19' ,
+         SUM(CASE WHEN  OrderN = 20 THEN FCY
+END) AS '20' ,
+         SUM(CASE WHEN  OrderN = 21 THEN FCY
+END) AS '21' ,
+         SUM(CASE WHEN  OrderN = 26 THEN FCY
+END) AS '26' ,
+         SUM(CASE WHEN  OrderN = 29 THEN FCY
+END) AS '29' ,
+         SUM(CASE WHEN  OrderN = 34 THEN FCY
+END) AS '34' ,
+         SUM(CASE WHEN  OrderN = 37 THEN FCY
+END) AS '37' ,
+      SUM(CASE WHEN  OrderN = 39 THEN FCY
+END) AS '39' ,
+         SUM(CASE WHEN  OrderN = 41 THEN FCY
+END) AS '41' ,
+         SUM(CASE WHEN  OrderN = 42 THEN FCY
+END) AS '42' ,
+         SUM(CASE WHEN  OrderN = 44 THEN FCY
+END) AS '44' ,
+         SUM(CASE WHEN  OrderN = 45 THEN FCY
+END) AS '45' ,
+         SUM(CASE WHEN  OrderN = 46 THEN FCY
+END) AS '46' ,
+         SUM(CASE WHEN  OrderN = 49 THEN FCY
+END) AS '49' ,
+         SUM(CASE WHEN  OrderN = 50 THEN FCY
+END) AS '50' ,
+         SUM(CASE WHEN  OrderN = 52 THEN FCY
+END) AS '52' ,
+         SUM(CASE WHEN  OrderN = 53 THEN FCY
+END) AS '53' ,
+         SUM(CASE WHEN  OrderN = 54 THEN FCY
+END) AS '54' ,
+         SUM(CASE WHEN  OrderN = 55 THEN FCY
+END) AS '55' ,
+         SUM(CASE WHEN  OrderN = 56 THEN FCY
+END) AS '56' ,
+         SUM(CASE WHEN  OrderN = 59 THEN FCY
+END) AS '59' ,
+         SUM(CASE WHEN  OrderN = 61 THEN FCY
+END) AS '61' ,
+         SUM(CASE WHEN  OrderN = 67 THEN FCY
+END) AS '67' ,
+         SUM(CASE WHEN  OrderN = 69 THEN FCY
+END) AS '69'  ,
+         reportdate  ,
+         EDRPOU INTO #consolidated_balance_FCY
+FROM sb_bio.tb_xmlf02_balance_uror
+WHERE 1=1
+    AND EDRPOU ='00032129'
+    --'" + Parameters!EDRPOU.Value + "'
+    AND ReportDate >= @Date_fuib1
+    AND ReportDate <= @Date_fuib2
+GROUP BY  reportdate,
+          EDRPOU;
+COMMIT;
+
+SELECT     (isnull(slg.[67],0)-isnull(slg.[20],0)-isnull(slg.[19],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+  isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+  isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0) AS stable_liab_gross,
+         isnull(slg.[10],0)+ isnull(slg.[11],0)+ isnull(slg.[15],0)+ isnull(slg.[4],0)*fl.L_FCY AS working_assets_gross  ,
+         (isnull(slg.[67],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+  isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+  isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0) AS stable_liab_net  ,
+         CASE WHEN isnull(slg.[69],0)=0 THEN 0
+ELSE ((isnull(slg.[67],0)-isnull(slg.[26],0)-isnull(slg.[29],0))+  isnull(slg.[37],0)+isnull(slg.[42],0)+isnull(slg.[45],0)*fl.F_FCY+isnull(slg.[46],0)+isnull(slg.[49],0)*fl.L_FCY+  isnull(slg.[50],0)+isnull(slg.[53],0)+isnull(slg.[54],0))/(isnull(slg.[69],0))
+END AS stab_liab_net_dev,
+         isnull(slg.[10],0)+ isnull(slg.[21],0)+ isnull(slg.[13],0)+ isnull(slg.[4],0)*fl.L_FCY AS working_assets_net,
+          CASE WHEN isnull(slg.[69],0)=0 THEN 0
+ELSE (isnull(slg.[10],0)+ isnull(slg.[21],0)+ isnull(slg.[13],0)+ isnull(slg.[4],0)*fl.L_FCY)/(isnull(slg.[69],0))
+END AS work_ass_net_dev,
+         isnull(slg.[2],0)+ isnull(slg.[3],0)+ isnull(slg.[5],0) AS Liquid_assets,
+          CASE WHEN isnull(slg.[69],0)=0 THEN 0
+ELSE (isnull(slg.[2],0)+ isnull(slg.[3],0)+ isnull(slg.[5],0))/(isnull(slg.[69],0))
+END AS Liquid_assets_dev,
+         fl.F_FCY ,
+         fl.L_FCY ,
+         slg.EDRPOU ,
+         slg.reportdate,
+     CASE WHEN stable_liab_gross = 0 THEN 0
+ELSE  working_assets_gross/stable_liab_gross
+END AS Loan_portfolio_fund,
+     CASE WHEN (isnull(slg.[39],0) + isnull(slg.[44],0) + isnull(slg.[49],0)) = 0 THEN 0
+ELSE Liquid_assets/(isnull(slg.[39],0) + isnull(slg.[44],0) + isnull(slg.[49],0))
+END AS Instant_liquidity,
+     CASE WHEN (isnull(slg.[61],0) - isnull(slg.[54],0) - isnull(slg.[55],0) - isnull(slg.[56],0)  - isnull(slg.[59],0)) = 0 THEN 0
+ELSE (isnull(slg.[2],0) + isnull(slg.[3],0) + isnull(slg.[4],0) + isnull(slg.[9],0) + isnull(slg.[10],0))/(isnull(slg.[61],0) - isnull(slg.[54],0) - isnull(slg.[55],0) - isnull(slg.[56],0)  - isnull(slg.[59],0))
+END  AS Current_liquidity,
+     CASE WHEN (isnull(slg.[61],0) - isnull(slg.[54],0) - ( isnull(slg.[55],0) + isnull(slg.[56],0)  + isnull(slg.[59],0)) - isnull(slg.[52],0)) = 0 THEN 0
+ELSE (isnull(slg.[2],0) + isnull(slg.[3],0) + isnull(slg.[4],0) + (isnull(slg.[9],0) - isnull(slg.[41],0))+ isnull(slg.[10],0))/(isnull(slg.[61],0) - isnull(slg.[54],0) - ( isnull(slg.[55],0) + isnull(slg.[56],0)  + isnull(slg.[59],0)) - isnull(slg.[52],0))
+END AS Current_liquidity_MBK,
+     CASE WHEN isnull(slg.[34],0) = 0 THEN 0
+ELSE (isnull(slg.[9],0) - isnull(slg.[41],0))/isnull(slg.[34],0)
+END AS Saldo_interb_tran_Assets
+FROM #consolidated_balance_FCY AS slg LEFT JOIN #FL_COEFF AS fl ON slg.EDRPOU = fl.EDRPOU and  slg.reportdate = fl.reportdate
+ORDER BY slg.reportdate,
+     slg.EDRPOU;
+END
