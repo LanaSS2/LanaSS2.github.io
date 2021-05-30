@@ -1,0 +1,136 @@
+BEGIN
+declare local temporary table ltb_V_C (HH_MI varchar(10),RC varchar(4),BRCA varchar(4),CrncyAmount_Buy money,MainAmount_Buy money,Rate_Trans_Buy money,
+                                              Amount_Buy_Rate money,Rate_Buy money,Count_Buy int,CrncyAmount_Sell money,MainAmount_Sell money,Rate_Trans_Sell money,
+                                              Amount_Sell_Rate money,Rate_Sell money, Count_Sell int)on commit preserve rows;
+
+
+declare local temporary table ltb_total_range (HH_MI_range varchar(10),Cluster int,RC varchar(4),BRCA varchar(4), Avarage_Rate_Buy money,
+                                              Sum_CrncyAmount_Buy money,Sum_MainAmount_Buy money,Avarage_Rate_Sell money, Sum_CrncyAmount_Sell money,
+                                              Sum_MainAmount_Sell money,Count_Buy_Div_Count_Sell money)on commit preserve rows;
+
+
+declare @DateFrom date;
+declare @DateInto date;
+set @DateFrom='2021-04-01'; --@DayDate_ot
+set @DateInto='2021-04-30'; --@DayDate_do
+
+------------------
+insert into ltb_V_C (HH_MI, RC, BRCA, CrncyAmount_Buy,MainAmount_Buy, Count_Buy, /*Rate_Trans_Buy, */ Amount_Buy_Rate,Rate_Buy,
+       CrncyAmount_Sell,MainAmount_Sell,/*Rate_Trans_Sell,*/Amount_Sell_Rate,Rate_Sell, Count_Sell)  -- Объем и К-во
+
+select
+
+dateformat(a.created,'HH:MM')as HH_MI,
+       b.RC,
+       b.BRCA,
+       --последний тек курс
+       --курс, по кот провели
+       sum(case when a.ActionId=321 then a.CrncyAmount else 0 end) as CrncyAmount_Buy,
+       sum(case when a.ActionId=321 then a.MainAmount  else 0 end) as MainAmount_Buy,
+       sum(case when a.ActionId=321 then 1 else 0 end) as Count_Buy,
+
+     --  sum(case when a.ActionId=321 and a.CrncyAmount<>0 and Count_Buy<>0 then ((a.MainAmount/a.CrncyAmount)/Count_Buy) else 0 end) as Rate_Trans_Buy, ---!!
+
+       sum(case when a.ActionId=321 then (CAST(r.MinNum as numeric(18,4))/r.MinDen)*a.CrncyAmount  else 0 end) as Amount_Buy_Rate,
+
+       case when a.ActionId=321 then    CAST(r.MinNum as numeric(18,4)) /r.MinDen else 0 end as Rate_Buy,
+
+
+       sum(case when a.ActionId=322 then a.CrncyAmount else 0 end) as CrncyAmount_Sell,
+       sum(case when a.ActionId=322 then a.MainAmount  else 0 end) as MainAmount_Sell,
+
+   --   sum(case when a.ActionId=322 and a.CrncyAmount<>0 then CAST(a.MainAmount as numeric(18,4))/a.CrncyAmount  else 0 end) as Rate_Trans_Sell,---
+
+       sum(case when a.ActionId=322 then (CAST(r.MinNum as numeric(18,4))/r.MinDen )*a.CrncyAmount else 0 end) as Amount_Sell_Rate,
+       case when a.ActionId=322 then CAST(r.MinNum as numeric(18,4)) /r.MinDen  else 0 end as Rate_Sell,
+       sum(case when a.ActionId=322 then 1 else 0 end) as Count_Sell
+
+   --into #ltb_Vol_Count
+from DFC.tb_sc_vBills a
+join dfc.tb_sc_vToday t  on a.DayDate_fuib = t.DayDate_fuib  and t.kind = 0
+left join DFC.tb_dfc_Branch b on a.BranchId=b.BranchId
+left join DFC.tb_sc_vRates r on a.DayDate=r.DayDate
+     and a.BranchId=r.BranchId
+     and a.CurrencyTag=r.CurrencyTag
+     and a.ActionId = r.ActionId
+where a.ActionId in (321,322)
+      and a.ProcessFlag&3=3
+      and a.DayDate_fuib>=@DateFrom
+      and a.DayDate_fuib<= @DateInto
+      and a.CurrencyTag='USD'
+      --and a.id=5765855393
+group by HH_MI, RC, BRCA, r.MinDen,r.MinNum, a.ActionId; commit;
+--
+-- create HG index IXML_ds_Rates_RC on sb_bio.tb_ML_ds_Rates(RC);
+-- create HG index IXML_ds_Rates_BRCA on sb_bio.tb_ML_ds_Rates(BRCA);
+
+-- select * from  ltb_V_C;
+-- end
+
+insert into ltb_total_range (HH_MI_range,Cluster,RC,BRCA,Avarage_Rate_Buy,Sum_CrncyAmount_Buy,Sum_MainAmount_Buy,Avarage_Rate_Sell,Sum_CrncyAmount_Sell,
+                                Sum_MainAmount_Sell,Count_Buy_Div_Count_Sell)
+
+select
+case
+when b.HH_MI>='09:00' and b.HH_MI<'09:15' then '09:00_09:15'
+when b.HH_MI>='09:15' and b.HH_MI<'09:30' then '09:15_09:30'
+when b.HH_MI>='09:30' and b.HH_MI<'09:45' then '09:30_09:45'
+when b.HH_MI>='09:45' and b.HH_MI<'10:00' then '09:45_10:00'
+
+when b.HH_MI>='10:00' and b.HH_MI<'10:15' then '10:00_10:15'
+when b.HH_MI>='10:15' and b.HH_MI<'10:30' then '10:15_10:30'
+when b.HH_MI>='10:30' and b.HH_MI<'10:45' then '10:30_10:45'
+when b.HH_MI>='10:45' and b.HH_MI<'11:00' then '10:45_11:00'
+
+when b.HH_MI>='11:00' and b.HH_MI<'11:15' then '11:00_11:15'
+when b.HH_MI>='11:15' and b.HH_MI<'11:30' then '11:15_11:30'
+when b.HH_MI>='11:30' and b.HH_MI<'11:45' then '11:30_11:45'
+when b.HH_MI>='11:45' and b.HH_MI<'12:00' then '11:45_12:00'
+
+when b.HH_MI>='12:00' and b.HH_MI<'12:15' then '12:00_12:15'
+when b.HH_MI>='12:15' and b.HH_MI<'12:30' then '12:15_12:30'
+when b.HH_MI>='12:30' and b.HH_MI<'12:45' then '12:30_12:45'
+when b.HH_MI>='12:45' and b.HH_MI<'13:00' then '12:45_13:00'
+
+when b.HH_MI>='13:00' and b.HH_MI<'13:15' then '13:00_13:15'
+when b.HH_MI>='13:15' and b.HH_MI<'13:30' then '13:15_13:30'
+when b.HH_MI>='13:30' and b.HH_MI<'13:45' then '13:30_13:45'
+when b.HH_MI>='13:45' and b.HH_MI<'14:00' then '13:45_14:00'
+
+when b.HH_MI>='14:00' and b.HH_MI<'14:15' then '14:00_14:15'
+when b.HH_MI>='14:15' and b.HH_MI<'14:30' then '14:15_14:30'
+when b.HH_MI>='14:30' and b.HH_MI<'14:45' then '14:30_14:45'
+when b.HH_MI>='14:45' and b.HH_MI<'15:00' then '14:45_15:00'
+
+when b.HH_MI>='15:00' and b.HH_MI<'15:15' then '15:00_15:15'
+when b.HH_MI>='15:15' and b.HH_MI<'15:30' then '15:15_15:30'
+when b.HH_MI>='15:30' and b.HH_MI<'15:45' then '15:30_15:45'
+when b.HH_MI>='15:45' and b.HH_MI<'16:00' then '15:45_16:00'
+
+when b.HH_MI>='16:00' and b.HH_MI<'16:15' then '16:00_16:15'
+when b.HH_MI>='16:15' and b.HH_MI<'16:30' then '16:15_16:30'
+when b.HH_MI>='16:30' and b.HH_MI<'16:45' then '16:30_16:45'
+when b.HH_MI>='16:45' and b.HH_MI<'17:00' then '16:45_17:00'
+
+when b.HH_MI>='17:00' and b.HH_MI<'17:15' then '17:00_17:15'
+when b.HH_MI>='17:15' and b.HH_MI<'17:30' then '17:15_17:30'
+when b.HH_MI>='17:30' and b.HH_MI<'17:45' then '17:30_17:45'
+when b.HH_MI>='17:45' and b.HH_MI<'18:00' then '17:45_18:00'
+else null end as HH_MI_range,
+mlr.Cluster, b.RC, b.BRCA,
+ case when sum(b.Count_Buy)=0 then  0 else sum(b.Rate_Buy)/sum(b.Count_Buy) end  as Avarage_Rate_Buy,
+ sum(b.CrncyAmount_Buy)                                                      as Sum_CrncyAmount_Buy,
+ sum(b.MainAmount_Buy)                                                       as Sum_MainAmount_Buy,
+-- sum(CAST(Count_Buy as numeric(2,1))                                       as Count_Buy,
+ case when sum(b.Count_Sell)=0 then 0 else sum(b.Rate_Sell)/sum(b.Count_Sell) end as Avarage_Rate_Sell,
+ sum(b.CrncyAmount_Sell)                                                     as Sum_CrncyAmount_Sell,
+ sum(b.MainAmount_Sell)                                                      as Sum_MainAmount_Sell,
+ --sum(b.Count_Sell)                                                       as Count_Sell
+ case when sum(b.Count_Sell)=0 then 0 else sum(b.Count_Buy)*1.00/sum(b.Count_Sell) end as Count_Buy_Div_Count_Sell
+from  ltb_V_C as b
+left join sb_bio.tb_ML_ds_Rates as mlr on b.RC=mlr.RC and b.BRCA=mlr.BRCA
+group by HH_MI_range,mlr.Cluster, b.RC, b.BRCA;
+
+Select * from ltb_total_range;
+ end
+
